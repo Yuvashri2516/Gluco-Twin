@@ -18,6 +18,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+# Local database files
+*.db
 
 # IDE and OS
 .vscode/
