@@ -21,10 +21,7 @@ import {
 } from './api/client';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-
-  // Data states
+  const [currentScreen, setCurrentScreen] = useState('overview');
   const [patients, setPatients] = useState([]);
   const [selectedPatientId, setSelectedPatientId] = useState(null);
   const [hours, setHours] = useState(24);
@@ -56,10 +53,14 @@ export default function App() {
     try {
       // Check health
       try {
-        await fetchHealth();
-        setBackendOnline(true);
-      } catch {
-        setBackendOnline(false);
+        const [pts, alts] = await Promise.all([
+          apiClient.getPatients(),
+          apiClient.getAlerts()
+        ]);
+        setPatients(pts);
+        setAlerts(alts);
+      } catch (err) {
+        console.error('Failed to load initial data:', err);
       }
 
       // Fetch patients from real API
@@ -83,43 +84,27 @@ export default function App() {
     }
   }, [loadNotifications]);
 
+  // Load patient-specific data when active patient changes
   useEffect(() => {
-    loadPatientsAndHealth();
-  }, [loadPatientsAndHealth]);
-
-  // 2. Fetch Time-Series Readings when Selected Patient or Hours Window changes
-  const loadPatientReadings = useCallback(async (patientId, windowHours) => {
-    if (!patientId) return;
-    setIsLoadingReadings(true);
-    setError(null);
-    try {
-      const [glucoseData, vitalsData] = await Promise.all([
-        fetchGlucoseReadings(patientId, windowHours),
-        fetchVitalReadings(patientId, windowHours),
-      ]);
-      setGlucoseReadings(glucoseData);
-      setVitalReadings(vitalsData);
-      setBackendOnline(true);
-    } catch (err) {
-      setError(err.message || 'Error fetching telemetry readings for active patient.');
-    } finally {
-      setIsLoadingReadings(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (selectedPatientId) {
-      loadPatientReadings(selectedPatientId, hours);
-    }
-  }, [selectedPatientId, hours, loadPatientReadings]);
-
-  // Handle Manual Refresh
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await loadPatientsAndHealth();
-      if (selectedPatientId) {
-        await loadPatientReadings(selectedPatientId, hours);
+    async function loadPatientData() {
+      setLoading(true);
+      try {
+        const [pt, telem, preds, xai, twin] = await Promise.all([
+          apiClient.getPatientById(activePatientId),
+          apiClient.getTelemetry(activePatientId, 4),
+          apiClient.getPredictions(activePatientId),
+          apiClient.getXaiFeatures(activePatientId),
+          apiClient.getTwinStatus(activePatientId)
+        ]);
+        setActivePatient(pt);
+        setTelemetry(telem);
+        setPredictions(preds);
+        setXaiFeatures(xai);
+        setTwinStatus(twin);
+      } catch (err) {
+        console.error('Failed to load patient data:', err);
+      } finally {
+        setLoading(false);
       }
       await loadNotifications();
     } finally {
@@ -127,7 +112,19 @@ export default function App() {
     }
   };
 
-  const selectedPatient = patients.find((p) => p.id === selectedPatientId) || null;
+  // Handle alert escalation
+  const handleEscalateAlert = async (alertId) => {
+    try {
+      await apiClient.escalateAlert(alertId);
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === alertId ? { ...a, status: 'escalated' } : a))
+      );
+    } catch (err) {
+      console.error('Failed to escalate alert:', err);
+    }
+  };
+
+  const unreadAlertCount = alerts.filter((a) => a.status === 'unacknowledged').length;
 
   return (
     <div className="app-layout">
@@ -155,36 +152,31 @@ export default function App() {
           notifications={activeNotifications}
           onNavigateTab={setActiveTab}
         />
+      )}
 
-        {/* Main Content Dashboard */}
-        <main className="content-container">
-          {/* Global Error Banner */}
-          {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
+      {currentScreen === 'history' && (
+        <PatientHistoryScreen patient={activePatient} />
+      )}
 
-          {/* Initial Loading State */}
-          {isLoadingPatients && (
-            <div style={{ padding: '60px 0' }}>
-              <LoadingSpinner message="Connecting to GlucoTwin backend and fetching patient cohort..." />
-            </div>
-          )}
+      {currentScreen === 'monitoring' && (
+        <MonitoringScreen
+          telemetry={telemetry}
+          predictions={predictions}
+          twinStatus={twinStatus}
+        />
+      )}
 
-          {!isLoadingPatients && (
-            <>
-              {/* TAB 1: OVERVIEW */}
-              {activeTab === 'overview' && (
-                <>
-                  <PatientOverview
-                    patients={patients}
-                    selectedPatient={selectedPatient}
-                    onSelectPatient={setSelectedPatientId}
-                    isLoading={isLoadingPatients}
-                  />
+      {currentScreen === 'prediction' && (
+        <PredictionXaiScreen
+          telemetry={telemetry}
+          predictions={predictions}
+          xaiFeatures={xaiFeatures}
+        />
+      )}
 
-                  <MonitoringCards
-                    glucoseReadings={glucoseReadings}
-                    vitalReadings={vitalReadings}
-                    isLoading={isLoadingReadings}
-                  />
+      {currentScreen === 'simulation' && (
+        <SimulationScreen />
+      )}
 
                   <GlucoseChart
                     readings={glucoseReadings}
