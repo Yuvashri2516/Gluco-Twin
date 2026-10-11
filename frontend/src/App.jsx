@@ -17,6 +17,7 @@ import {
   fetchPatients,
   fetchGlucoseReadings,
   fetchVitalReadings,
+  fetchAlerts,
 } from './api/client';
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
   const [hours, setHours] = useState(24);
   const [glucoseReadings, setGlucoseReadings] = useState([]);
   const [vitalReadings, setVitalReadings] = useState([]);
+  const [activeNotifications, setActiveNotifications] = useState([]);
 
   // UI / Status states
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
@@ -37,7 +39,17 @@ export default function App() {
   const [backendOnline, setBackendOnline] = useState(false);
   const [error, setError] = useState(null);
 
-  // 1. Initial Load: Check Health and Fetch Patient Roster
+  // Load active notifications
+  const loadNotifications = useCallback(async () => {
+    try {
+      const data = await fetchAlerts({ status: 'active' });
+      setActiveNotifications(data);
+    } catch {
+      // background sync
+    }
+  }, []);
+
+  // 1. Initial Load: Check Health, Fetch Patient Roster, and Active Notifications
   const loadPatientsAndHealth = useCallback(async () => {
     setIsLoadingPatients(true);
     setError(null);
@@ -56,18 +68,20 @@ export default function App() {
 
       if (patientList.length > 0) {
         setSelectedPatientId((prev) => {
-          // Keep previous selection if valid, else select first patient
           const exists = patientList.some((p) => p.id === prev);
           return exists ? prev : patientList[0].id;
         });
       }
+
+      // Fetch active notifications
+      loadNotifications();
     } catch (err) {
       setError(err.message || 'Failed to connect to GlucoTwin backend API.');
       setBackendOnline(false);
     } finally {
       setIsLoadingPatients(false);
     }
-  }, []);
+  }, [loadNotifications]);
 
   useEffect(() => {
     loadPatientsAndHealth();
@@ -107,6 +121,7 @@ export default function App() {
       if (selectedPatientId) {
         await loadPatientReadings(selectedPatientId, hours);
       }
+      await loadNotifications();
     } finally {
       setIsRefreshing(false);
     }
@@ -122,6 +137,7 @@ export default function App() {
         onSelectTab={setActiveTab}
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
+        unreadAlertsCount={activeNotifications.length}
       />
 
       <div className="main-wrapper">
@@ -136,6 +152,8 @@ export default function App() {
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
           onOpenMobileSidebar={() => setIsMobileOpen(true)}
+          notifications={activeNotifications}
+          onNavigateTab={setActiveTab}
         />
 
         {/* Main Content Dashboard */}
@@ -188,7 +206,11 @@ export default function App() {
 
                   <PredictionsPanel selectedPatient={selectedPatient} />
 
-                  <AlertsPanel />
+                  <AlertsPanel
+                    selectedPatient={selectedPatient}
+                    onSelectPatient={setSelectedPatientId}
+                    onAlertsUpdated={loadNotifications}
+                  />
 
                   <WhatIfSimulation selectedPatient={selectedPatient} />
                 </>
@@ -256,11 +278,14 @@ export default function App() {
 
               {/* TAB 5: DIGITAL TWIN */}
               {activeTab === 'twin' && (
-                <DigitalTwinPanel
-                  selectedPatient={selectedPatient}
-                  glucoseReadings={glucoseReadings}
-                  vitalReadings={vitalReadings}
-                />
+                <>
+                  <DigitalTwinPanel
+                    selectedPatient={selectedPatient}
+                    glucoseReadings={glucoseReadings}
+                    vitalReadings={vitalReadings}
+                  />
+                  <WhatIfSimulation selectedPatient={selectedPatient} />
+                </>
               )}
 
               {/* TAB 6: PREDICTIONS */}
@@ -269,7 +294,13 @@ export default function App() {
               )}
 
               {/* TAB 7: ALERTS */}
-              {activeTab === 'alerts' && <AlertsPanel />}
+              {activeTab === 'alerts' && (
+                <AlertsPanel
+                  selectedPatient={selectedPatient}
+                  onSelectPatient={setSelectedPatientId}
+                  onAlertsUpdated={loadNotifications}
+                />
+              )}
             </>
           )}
         </main>

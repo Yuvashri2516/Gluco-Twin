@@ -76,7 +76,7 @@ const NAV_ITEMS = [
   },
 ];
 
-export default function Sidebar({ activeTab, onSelectTab, isMobileOpen, onCloseMobile }) {
+export default function Sidebar({ activeTab, onSelectTab, isMobileOpen, onCloseMobile, unreadAlertsCount = 0 }) {
   return (
     <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-brand">
@@ -111,6 +111,9 @@ export default function Sidebar({ activeTab, onSelectTab, isMobileOpen, onCloseM
             >
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{item.label}</span>
+              {item.id === 'alerts' && unreadAlertsCount > 0 && (
+                <span className="sidebar-alert-badge">{unreadAlertsCount}</span>
+              )}
               {isActive && <span className="active-indicator" />}
             </button>
           );

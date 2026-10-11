@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export default function Topbar({
   patients = [],
@@ -10,8 +10,37 @@ export default function Topbar({
   onRefresh,
   isRefreshing,
   onOpenMobileSidebar,
+  notifications = [],
+  onNavigateTab,
 }) {
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const selectedPatient = patients.find((p) => p.id === Number(selectedPatientId));
+  const activeAlerts = notifications.filter((n) => n.status === 'active');
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsNotificationsOpen(false);
+      }
+    }
+    if (isNotificationsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isNotificationsOpen]);
+
+  const handleSelectAlert = (alert) => {
+    setIsNotificationsOpen(false);
+    if (onSelectPatient && alert.patient_id) {
+      onSelectPatient(alert.patient_id);
+    }
+    if (onNavigateTab) {
+      onNavigateTab('alerts');
+    }
+  };
 
   return (
     <header className="topbar">
@@ -76,6 +105,77 @@ export default function Topbar({
           ))}
         </div>
 
+        {/* Notifications Bell Dropdown */}
+        <div className="notifications-wrapper" ref={dropdownRef}>
+          <button
+            type="button"
+            className={`topbar-notification-btn ${activeAlerts.length > 0 ? 'has-alerts' : ''}`}
+            onClick={() => setIsNotificationsOpen((prev) => !prev)}
+            title="Doctor / Staff Alert Notifications"
+            aria-label="Alert Notifications"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {activeAlerts.length > 0 && (
+              <span className="notification-badge-count">{activeAlerts.length}</span>
+            )}
+          </button>
+
+          {isNotificationsOpen && (
+            <div className="notifications-dropdown-menu">
+              <div className="notif-header">
+                <strong>In-Dashboard Alert Center</strong>
+                <span className="badge badge-neutral">{activeAlerts.length} Active</span>
+              </div>
+
+              {activeAlerts.length === 0 ? (
+                <div className="notif-empty">
+                  <span>No active unacknowledged alerts</span>
+                </div>
+              ) : (
+                <div className="notif-list">
+                  {activeAlerts.slice(0, 6).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="notif-item"
+                      onClick={() => handleSelectAlert(item)}
+                    >
+                      <div className="notif-item-top">
+                        <span className={`badge ${
+                          item.severity === 'critical' ? 'badge-critical' : 'badge-warning'
+                        }`}>
+                          {item.severity}
+                        </span>
+                        <span className="notif-patient">{item.patient_name || `Patient #${item.patient_id}`}</span>
+                      </div>
+                      <p className="notif-message">{item.message}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="notif-footer">
+                <button
+                  type="button"
+                  className="notif-view-all-btn"
+                  onClick={() => {
+                    setIsNotificationsOpen(false);
+                    if (onNavigateTab) onNavigateTab('alerts');
+                  }}
+                >
+                  Open Full Alerts Dashboard &rarr;
+                </button>
+                <span className="notif-disclaimer">
+                  In-dashboard notification workflow (no external SMS/Email integration).
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Refresh Button */}
         <button
           className="refresh-btn"
@@ -116,3 +216,4 @@ export default function Topbar({
     </header>
   );
 }
+

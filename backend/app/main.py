@@ -24,7 +24,8 @@ from app.database import engine, Base, SessionLocal
 from app.models import Patient, GlucoseReading, VitalReading, DigitalTwinState, Alert  # noqa: F401  (imported so Base.metadata knows about them)
 from app.seed import seed_database
 from app.schemas import HealthCheck
-from app.routers import patients, readings
+from app.routers import patients, readings, predictions, alerts, twin
+from app.alerts_engine import ensure_alert_columns, evaluate_all_alerts_for_patient
 
 
 # ---------------------------------------------------------------------------
@@ -34,16 +35,20 @@ from app.routers import patients, readings
 async def lifespan(app: FastAPI):
     """
     Code before `yield` runs on startup; code after runs on shutdown.
-    We use it to create tables and seed data once.
+    We use it to create tables, verify columns, and seed data once.
     """
     # Create all tables that don't exist yet
     Base.metadata.create_all(bind=engine)
+    ensure_alert_columns(engine)
     print("[OK] Database tables created / verified.")
 
     # Seed synthetic data (idempotent -- safe to call every restart)
     db = SessionLocal()
     try:
         seed_database(db)
+        # Pre-evaluate alerts for all seeded patients (idempotent & deduplicated)
+        for p in db.query(Patient).all():
+            evaluate_all_alerts_for_patient(db, p)
     finally:
         db.close()
 
@@ -82,6 +87,9 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 app.include_router(patients.router)
 app.include_router(readings.router)
+app.include_router(predictions.router)
+app.include_router(alerts.router)
+app.include_router(twin.router)
 
 
 # ---------------------------------------------------------------------------

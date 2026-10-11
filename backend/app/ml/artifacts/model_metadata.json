@@ -1,0 +1,103 @@
+{
+  "model_version": "0.1.0-prototype",
+  "model_type": "StandardScaler + LogisticRegression (L2, C=1.0)",
+  "trained_at_utc": "2026-10-10T17:59:37.443635+00:00",
+  "random_state": 42,
+  "spike_threshold_mg_dl": 180.0,
+  "prediction_horizon_minutes": 120,
+  "observation_window_minutes": 60,
+  "features": [
+    "curr_glucose",
+    "mean_glucose_1h",
+    "std_glucose_1h",
+    "slope_glucose_1h",
+    "curr_hr",
+    "curr_hrv",
+    "mean_hr_1h",
+    "mean_hrv_1h",
+    "circadian_sin",
+    "circadian_cos",
+    "age",
+    "years_diagnosis",
+    "is_type1",
+    "is_prediabetes"
+  ],
+  "feature_coefficients": {
+    "curr_glucose": -0.008758635714343425,
+    "mean_glucose_1h": 0.31574324713436663,
+    "std_glucose_1h": -0.15525819008220546,
+    "slope_glucose_1h": 0.008612095734031867,
+    "curr_hr": 0.09061614054883764,
+    "curr_hrv": 0.060786973942233744,
+    "mean_hr_1h": -0.06074870131204813,
+    "mean_hrv_1h": -0.17087263654732768,
+    "circadian_sin": -0.26379532064854194,
+    "circadian_cos": 0.07739634867788703,
+    "age": -0.7267769556564186,
+    "years_diagnosis": 0.6011514145203217,
+    "is_type1": -0.37130958680087595,
+    "is_prediabetes": -2.166952126911089
+  },
+  "feature_means": {
+    "curr_glucose": 138.84547263681594,
+    "mean_glucose_1h": 138.87874626865673,
+    "std_glucose_1h": 11.461472636815921,
+    "slope_glucose_1h": 0.004607860696517412,
+    "curr_hr": 72.02547263681592,
+    "curr_hrv": 49.99283582089553,
+    "mean_hr_1h": 72.0284577114428,
+    "mean_hrv_1h": 49.96477611940299,
+    "circadian_sin": -0.01290497512437815,
+    "circadian_cos": -0.04221094527363187,
+    "age": 44.0,
+    "years_diagnosis": 9.4,
+    "is_type1": 0.2,
+    "is_prediabetes": 0.2
+  },
+  "feature_scales": {
+    "curr_glucose": 22.874758556222407,
+    "mean_glucose_1h": 18.225475135117726,
+    "std_glucose_1h": 10.450541808920605,
+    "slope_glucose_1h": 0.3840232198720489,
+    "curr_hr": 5.52768769416979,
+    "curr_hrv": 8.236969713891911,
+    "mean_hr_1h": 4.025360662986256,
+    "mean_hrv_1h": 3.9103858488889447,
+    "circadian_sin": 0.6944936131324144,
+    "circadian_cos": 0.7181524906871806,
+    "age": 11.916375287812984,
+    "years_diagnosis": 6.280127387243033,
+    "is_type1": 0.4000000000000001,
+    "is_prediabetes": 0.4
+  },
+  "intercept": -1.1177735400136533,
+  "data_summary": {
+    "total_usable_samples": 1400,
+    "train_samples": 1005,
+    "test_samples": 355,
+    "purged_gap_samples": 40,
+    "train_positive_rate": 0.39502487562189054,
+    "test_positive_rate": 0.37464788732394366
+  },
+  "evaluation_metrics": {
+    "accuracy": 0.6028,
+    "precision": 0.4737,
+    "recall": 0.5414,
+    "f1_score": 0.5053,
+    "roc_auc": 0.7046,
+    "confusion_matrix": {
+      "true_negative": 142,
+      "false_positive": 80,
+      "false_negative": 61,
+      "true_positive": 72
+    },
+    "majority_baseline_f1": 0.0,
+    "majority_baseline_accuracy": 0.6254
+  },
+  "limitations": [
+    "Dataset is purely synthetic (5 synthetic patients generated via seed.py).",
+    "Vital signs in synthetic generator share circadian oscillation but lack physiological coupling to acute meal spikes.",
+    "Cross-patient generalization is confounded by small sample size (only 1 Type 1, 1 Pre-diabetic).",
+    "This prototype is an academic software demonstration and not a clinical diagnostic device."
+  ]
+}
