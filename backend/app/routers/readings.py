@@ -33,7 +33,7 @@ def get_glucose_readings(
     The readings are sorted chronologically so the frontend can
     plot them directly on a time-series chart.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).replace(tzinfo=None)
     readings = (
         db.query(GlucoseReading)
         .filter(
@@ -53,7 +53,7 @@ def get_vital_readings(
     db: Session = Depends(get_db),
 ):
     """Return heart-rate and HRV readings for a patient."""
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).replace(tzinfo=None)
     readings = (
         db.query(VitalReading)
         .filter(

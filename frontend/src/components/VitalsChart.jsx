@@ -99,7 +99,7 @@ export default function VitalsChart({ readings = [], isLoading, hours = 24 }) {
             data={readings}
             margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(15, 23, 42, 0.06)" />
             <XAxis
               dataKey="timestamp"
               tickFormatter={formatTickTime}

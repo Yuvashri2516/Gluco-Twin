@@ -20,6 +20,8 @@ __pycache__/
 venv/
 # Local database files
 *.db
+*.db.backup*
+*.db.backup_*
 
 # IDE and OS
 .vscode/

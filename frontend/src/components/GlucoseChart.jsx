@@ -137,7 +137,7 @@ export default function GlucoseChart({ readings = [], isLoading, hours = 24 }) {
                 <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(15, 23, 42, 0.06)" />
             <XAxis
               dataKey="timestamp"
               tickFormatter={formatTickTime}

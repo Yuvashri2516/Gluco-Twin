@@ -88,19 +88,22 @@ export default function App() {
   }, [loadPatientsAndHealth]);
 
   // 2. Fetch Time-Series Readings when Selected Patient or Hours Window changes
-  const loadPatientReadings = useCallback(async (patientId, windowHours) => {
+  const loadPatientReadings = useCallback(async (patientId, windowHours, signal) => {
     if (!patientId) return;
     setIsLoadingReadings(true);
+    setGlucoseReadings([]);
+    setVitalReadings([]);
     setError(null);
     try {
       const [glucoseData, vitalsData] = await Promise.all([
-        fetchGlucoseReadings(patientId, windowHours),
-        fetchVitalReadings(patientId, windowHours),
+        fetchGlucoseReadings(patientId, windowHours, signal),
+        fetchVitalReadings(patientId, windowHours, signal),
       ]);
       setGlucoseReadings(glucoseData);
       setVitalReadings(vitalsData);
       setBackendOnline(true);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       setError(err.message || 'Error fetching telemetry readings for active patient.');
     } finally {
       setIsLoadingReadings(false);
@@ -109,7 +112,9 @@ export default function App() {
 
   useEffect(() => {
     if (selectedPatientId) {
-      loadPatientReadings(selectedPatientId, hours);
+      const controller = new AbortController();
+      loadPatientReadings(selectedPatientId, hours, controller.signal);
+      return () => controller.abort();
     }
   }, [selectedPatientId, hours, loadPatientReadings]);
 

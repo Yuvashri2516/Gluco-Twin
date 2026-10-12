@@ -38,13 +38,13 @@ export async function fetchPatient(patientId) {
   return handleResponse(response, `patient #${patientId}`);
 }
 
-export async function fetchGlucoseReadings(patientId, hours = 24) {
-  const response = await fetch(`${API_BASE_URL}/api/readings/glucose/${patientId}?hours=${hours}`);
+export async function fetchGlucoseReadings(patientId, hours = 24, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/readings/glucose/${patientId}?hours=${hours}`, { signal });
   return handleResponse(response, `glucose readings for patient #${patientId}`);
 }
 
-export async function fetchVitalReadings(patientId, hours = 24) {
-  const response = await fetch(`${API_BASE_URL}/api/readings/vitals/${patientId}?hours=${hours}`);
+export async function fetchVitalReadings(patientId, hours = 24, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/readings/vitals/${patientId}?hours=${hours}`, { signal });
   return handleResponse(response, `vital readings for patient #${patientId}`);
 }
 

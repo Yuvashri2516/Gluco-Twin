@@ -15,6 +15,7 @@ RUN WITH:
     uvicorn app.main:app --reload --port 8000
 """
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -37,6 +38,11 @@ async def lifespan(app: FastAPI):
     Code before `yield` runs on startup; code after runs on shutdown.
     We use it to create tables, verify columns, and seed data once.
     """
+    # Safeguard: Never let automated tests modify the production/development database
+    if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("TESTING") == "1":
+        yield
+        return
+
     # Create all tables that don't exist yet
     Base.metadata.create_all(bind=engine)
     ensure_alert_columns(engine)
@@ -45,10 +51,11 @@ async def lifespan(app: FastAPI):
     # Seed synthetic data (idempotent -- safe to call every restart)
     db = SessionLocal()
     try:
-        seed_database(db)
-        # Pre-evaluate alerts for all seeded patients (idempotent & deduplicated)
-        for p in db.query(Patient).all():
-            evaluate_all_alerts_for_patient(db, p)
+        was_freshly_seeded = seed_database(db)
+        # Pre-evaluate alerts only on fresh database creation to prevent alert flood on restart
+        if was_freshly_seeded:
+            for p in db.query(Patient).all():
+                evaluate_all_alerts_for_patient(db, p)
     finally:
         db.close()
 
