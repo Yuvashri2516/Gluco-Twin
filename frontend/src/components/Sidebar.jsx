@@ -76,7 +76,7 @@ const NAV_ITEMS = [
   },
 ];
 
-export default function Sidebar({ activeTab, onSelectTab, isMobileOpen, onCloseMobile, unreadAlertsCount = 0 }) {
+export default function Sidebar({ activeTab, onSelectTab, isMobileOpen, onCloseMobile, unreadAlertsCount = 0, backendOnline = false }) {
   return (
     <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-brand">
@@ -122,10 +122,18 @@ export default function Sidebar({ activeTab, onSelectTab, isMobileOpen, onCloseM
 
       <div className="sidebar-footer">
         <div className="twin-status-pill">
-          <span className="pulse-dot" />
+          <span
+            className="pulse-dot"
+            style={{
+              backgroundColor: backendOnline ? 'var(--status-normal)' : 'var(--status-critical)',
+              boxShadow: backendOnline
+                ? '0 0 0 0 rgba(16, 185, 129, 0.7)'
+                : '0 0 0 0 rgba(239, 68, 68, 0.7)',
+            }}
+          />
           <div className="twin-status-info">
-            <span className="status-title">Backend Connected</span>
-            <span className="status-env">Phase 1 Engine v0.1</span>
+            <span className="status-title">{backendOnline ? 'Backend Connected' : 'API Disconnected'}</span>
+            <span className="status-env">Production v0.1</span>
           </div>
         </div>
       </div>

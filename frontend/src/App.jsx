@@ -143,6 +143,7 @@ export default function App() {
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
         unreadAlertsCount={activeNotifications.length}
+        backendOnline={backendOnline}
       />
 
       <div className="main-wrapper">

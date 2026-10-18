@@ -78,12 +78,30 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------------------------
-# CORS  -- allow the React dev server (port 5173) to call the API.
-# In production you would restrict `allow_origins` to your domain.
+# CORS Configuration
+# Explicitly permit the deployed Vercel production frontend and local dev servers.
+# Note: browsers forbid allow_origins=["*"] when allow_credentials=True.
 # ---------------------------------------------------------------------------
+ALLOWED_ORIGINS = [
+    "https://gluco-twin-eta.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# Allow additional origins via environment variable if provided
+custom_origins = os.environ.get("ALLOWED_ORIGINS")
+if custom_origins:
+    for orig in custom_origins.split(","):
+        orig_clean = orig.strip()
+        if orig_clean and orig_clean not in ALLOWED_ORIGINS:
+            ALLOWED_ORIGINS.append(orig_clean)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permissive for development
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://gluco-twin.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

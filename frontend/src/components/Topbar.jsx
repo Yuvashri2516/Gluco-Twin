@@ -210,7 +210,7 @@ export default function Topbar({
                 : '0 0 0 0 rgba(239, 68, 68, 0.7)',
             }}
           />
-          <span className="indicator-label">{backendOnline ? 'API 8000 OK' : 'API Offline'}</span>
+          <span className="indicator-label">{backendOnline ? 'API Online' : 'API Offline'}</span>
         </div>
       </div>
     </header>

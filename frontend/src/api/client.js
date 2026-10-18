@@ -1,8 +1,26 @@
 /**
  * API client for GlucoTwin backend
  */
+/**
+ * Resolves the backend API base URL with proper environment and mode fallbacks.
+ *
+ * Priority:
+ * 1. Explicit import.meta.env.VITE_API_BASE_URL (configured in Vercel or local .env)
+ * 2. Production fallback: https://gluco-twin.onrender.com (prevents querying 127.0.0.1 in production)
+ * 3. Development fallback: http://127.0.0.1:8000
+ */
+export function resolveApiBaseUrl() {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+  if (import.meta.env.PROD) {
+    return 'https://gluco-twin.onrender.com';
+  }
+  return 'http://127.0.0.1:8000';
+}
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+const API_BASE_URL = resolveApiBaseUrl();
 
 async function handleResponse(response, endpointName) {
   if (!response.ok) {
