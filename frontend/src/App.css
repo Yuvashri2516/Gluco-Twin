@@ -655,16 +655,18 @@ html, body {
    ========================================================================== */
 .monitoring-cards-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
   margin-bottom: 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .monitor-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -672,6 +674,8 @@ html, body {
   transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
   box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .monitor-card:hover {
@@ -682,13 +686,14 @@ html, body {
 .monitor-card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  min-width: 0;
 }
 
 .monitor-icon-wrapper {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -721,12 +726,17 @@ html, body {
   font-weight: 600;
   color: var(--text-secondary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 8px;
 }
 
 .monitor-card-header .badge {
-  margin-left: auto;
   white-space: nowrap;
   flex-shrink: 0;
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  letter-spacing: 0.01em;
 }
 
 .monitor-card-body {
@@ -734,17 +744,19 @@ html, body {
   flex-direction: column;
   flex: 1;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .monitor-value-row {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 8px;
+  min-width: 0;
 }
 
 .monitor-main-value {
-  font-size: 2.2rem;
+  font-size: 2.1rem;
   font-weight: 800;
   color: var(--text-main);
   letter-spacing: -0.02em;
@@ -753,7 +765,7 @@ html, body {
 }
 
 .monitor-unit {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-muted);
 }
@@ -763,14 +775,26 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   margin-top: auto;
   padding-top: 8px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.monitor-timestamp {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .monitor-data-type {
   font-family: var(--font-mono);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .monitor-empty-reading {
@@ -2516,14 +2540,14 @@ html, body {
   }
 }
 
-/* Intermediate Viewport (<= 1180px) */
-@media (max-width: 1180px) {
+/* Intermediate Viewport (<= 1200px) */
+@media (max-width: 1200px) {
   .cohort-grid {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
   .monitoring-cards-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .patient-vitals-strip {

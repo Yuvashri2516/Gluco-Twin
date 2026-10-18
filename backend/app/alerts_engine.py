@@ -89,8 +89,57 @@ def evaluate_observed_reading_alerts(
         .order_by(GlucoseReading.timestamp.desc())
         .first()
     )
-    ref_time = latest_r.timestamp if latest_r else datetime.now(timezone.utc).replace(tzinfo=None)
+
+    new_alerts: List[Alert] = []
+
+    # Check for DATA_MISSING category if no readings exist
+    if not latest_r:
+        dedup_key = f"obs:{patient.id}:data_missing:no_readings"
+        existing = db.query(Alert).filter(Alert.dedup_key == dedup_key).first()
+        if not existing:
+            alert = Alert(
+                patient_id=patient.id,
+                timestamp=datetime.now(timezone.utc),
+                severity="info",
+                message="Data Missing: System lacks recorded sensor telemetry for this synthetic patient.",
+                alert_type="data_missing",
+                source="observed_reading",
+                status="active",
+                trigger_value=0.0,
+                threshold=1.0,
+                acknowledged=False,
+                dedup_key=dedup_key,
+            )
+            db.add(alert)
+            new_alerts.append(alert)
+        return new_alerts
+
+    ref_time = latest_r.timestamp
     cutoff = ref_time - timedelta(hours=hours)
+
+    # Check for DATA_STALE category if latest reading is older than 24h
+    now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    hours_diff = (now_utc_naive - latest_r.timestamp).total_seconds() / 3600.0
+    if hours_diff > 24.0:
+        day_slug = latest_r.timestamp.strftime("%Y%m%d")
+        dedup_key = f"obs:{patient.id}:data_stale:{day_slug}"
+        existing = db.query(Alert).filter(Alert.dedup_key == dedup_key).first()
+        if not existing:
+            alert = Alert(
+                patient_id=patient.id,
+                timestamp=latest_r.timestamp if latest_r.timestamp.tzinfo else latest_r.timestamp.replace(tzinfo=timezone.utc),
+                severity="warning",
+                message=f"Data Stale: Stored telemetry is older than the 24-hour freshness window ({hours_diff:.1f} hours elapsed).",
+                alert_type="data_stale",
+                source="observed_reading",
+                status="active",
+                trigger_value=round(hours_diff, 1),
+                threshold=24.0,
+                acknowledged=False,
+                dedup_key=dedup_key,
+            )
+            db.add(alert)
+            new_alerts.append(alert)
 
     glucose_records = (
         db.query(GlucoseReading)
@@ -114,8 +163,6 @@ def evaluate_observed_reading_alerts(
         .order_by(VitalReading.timestamp.asc())
         .all()
     )
-
-    new_alerts: List[Alert] = []
 
     # 1. Glucose Threshold Alerts
     for r in glucose_records:

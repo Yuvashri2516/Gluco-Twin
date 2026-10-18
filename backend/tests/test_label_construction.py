@@ -57,8 +57,8 @@ def test_label_construction_positive_and_negative():
 
 def test_insufficient_future_coverage_excludes_sample():
     """
-    Samples near the end of the recording that lack the full 2-hour future
-    horizon must be dropped rather than assumed to be negative.
+    Samples near the end of the recording that lack the full 2-hour (120-min)
+    future horizon must be dropped rather than assumed to be negative.
     """
     base_t = datetime(2026, 10, 10, 10, 0, 0, tzinfo=timezone.utc)
     patient = {
@@ -84,11 +84,47 @@ def test_insufficient_future_coverage_excludes_sample():
         horizon_minutes=120,
     )
 
-    # For step 11 (12:45), future readings is empty -> cannot be in dataset
-    # For step 10 (12:30), future span is only 15 min (< 105 min) -> must be excluded
-    # For step 9 (12:15), future span is only 30 min -> must be excluded
-    # Only steps with at least 105 min future span (steps 0 to 4) should remain
+    # For step 11 (12:45), future readings is empty -> excluded
+    # For step 10 (12:30), future span is only 15 min -> excluded
+    # For step 4 (11:00), future span is 105 min (step 11 is 12:45) -> lacks full 120 min -> excluded
+    # Only steps with at least 120 min future span (steps 0 to 3) must remain
     max_step_in_df = df["step_idx"].max()
-    assert max_step_in_df <= 4
-    # End-of-series steps (5 to 11) must NOT be present
-    assert not any(df["step_idx"] >= 5)
+    assert max_step_in_df <= 3
+    # End-of-series steps with < 120 min (steps 4 to 11) must NOT be present
+    assert not any(df["step_idx"] >= 4)
+
+
+def test_105_minute_partial_horizon_without_spike_is_excluded():
+    """
+    REGRESSION TEST: A sample with 105 minutes of observations and no observed spike
+    must be excluded, because the final 15 minutes of the 120-minute horizon are
+    unobserved and cannot be assumed negative.
+    """
+    base_t = datetime(2026, 10, 10, 10, 0, 0, tzinfo=timezone.utc)
+    patient = {
+        "id": 2,
+        "name": "Subject C",
+        "age": 50,
+        "gender": "Male",
+        "diabetes_type": "Type 2",
+        "years_since_diagnosis": 6,
+    }
+
+    # 8 readings total (spanning 10:00 to 11:45 = 105 minutes of future observations from 10:00)
+    # Step 0 (10:00) has readings at 10:15, 10:30, 10:45, 11:00, 11:15, 11:30, 11:45 (7 future readings = 105 min)
+    readings = [
+        {"id": step + 1, "timestamp": base_t + timedelta(minutes=step * 15), "value": 110.0}
+        for step in range(8)
+    ]
+
+    df = build_supervised_dataset(
+        patients=[patient],
+        glucose_by_patient={2: readings},
+        vitals_by_patient={2: []},
+        spike_threshold=180.0,
+        horizon_minutes=120,
+    )
+
+    # Even though step 0 has 105 min of future readings and no spike,
+    # it must NOT be included with label=0 because the 120-min horizon was not reached.
+    assert df.empty or not any(df["step_idx"] == 0)

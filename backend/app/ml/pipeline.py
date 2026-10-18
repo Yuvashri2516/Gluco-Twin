@@ -227,12 +227,12 @@ def build_supervised_dataset(
                 if t < parse_ts(r["timestamp"]) <= horizon_end
             ]
 
-            # Require full future horizon coverage (at least 7 readings spanning >= 105 min)
+            # Require full future horizon coverage (must span at least horizon_minutes - 1.0 min)
             if not future_readings:
                 continue
             future_span = (parse_ts(future_readings[-1]["timestamp"]) - t).total_seconds() / 60.0
-            if future_span < (horizon_minutes - 15.0):
-                # Sample near end of patient recording; cannot confirm absence of spike
+            if future_span < (horizon_minutes - 1.0):
+                # Sample near end of patient recording; lacking full 2h coverage cannot confirm absence of spike
                 continue
 
             # Extract features strictly at t

@@ -69,9 +69,9 @@ export default function MonitoringCards({
               <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
             </svg>
           </div>
-          <span className="monitor-card-title">Latest Glucose</span>
           <span className={`badge ${glucoseBadge.class}`}>{glucoseBadge.label}</span>
         </div>
+        <div className="monitor-card-title">Latest Glucose</div>
 
         <div className="monitor-card-body">
           {latestGlucose ? (
@@ -81,8 +81,8 @@ export default function MonitoringCards({
                 <span className="monitor-unit">mg/dL</span>
               </div>
               <div className="monitor-meta-row">
-                <span className="monitor-timestamp">
-                  Observed: {formatTimestamp(latestGlucose.timestamp)}
+                <span className="monitor-timestamp" title={`Observed: ${formatTimestamp(latestGlucose.timestamp)}`}>
+                  {formatTimestamp(latestGlucose.timestamp)}
                 </span>
                 <span className="monitor-data-type">Recorded CGM</span>
               </div>
@@ -103,9 +103,9 @@ export default function MonitoringCards({
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
           </div>
-          <span className="monitor-card-title">Heart Rate</span>
           <span className={`badge ${hrBadge.class}`}>{hrBadge.label}</span>
         </div>
+        <div className="monitor-card-title">Heart Rate</div>
 
         <div className="monitor-card-body">
           {latestVital && latestVital.heart_rate != null ? (
@@ -115,8 +115,8 @@ export default function MonitoringCards({
                 <span className="monitor-unit">bpm</span>
               </div>
               <div className="monitor-meta-row">
-                <span className="monitor-timestamp">
-                  Observed: {formatTimestamp(latestVital.timestamp)}
+                <span className="monitor-timestamp" title={`Observed: ${formatTimestamp(latestVital.timestamp)}`}>
+                  {formatTimestamp(latestVital.timestamp)}
                 </span>
                 <span className="monitor-data-type">Recorded Vitals</span>
               </div>
@@ -138,9 +138,9 @@ export default function MonitoringCards({
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
               </svg>
             </div>
-            <span className="monitor-card-title">HR Variability (HRV)</span>
             <span className="badge badge-twin">Autonomic Metric</span>
           </div>
+          <div className="monitor-card-title">HR Variability (HRV)</div>
 
           <div className="monitor-card-body">
             <div className="monitor-value-row">
@@ -148,8 +148,8 @@ export default function MonitoringCards({
               <span className="monitor-unit">ms</span>
             </div>
             <div className="monitor-meta-row">
-              <span className="monitor-timestamp">
-                Observed: {formatTimestamp(latestVital.timestamp)}
+              <span className="monitor-timestamp" title={`Observed: ${formatTimestamp(latestVital.timestamp)}`}>
+                {formatTimestamp(latestVital.timestamp)}
               </span>
               <span className="monitor-data-type">RMSSD / SDNN</span>
             </div>
@@ -166,9 +166,9 @@ export default function MonitoringCards({
               <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
             </svg>
           </div>
-          <span className="monitor-card-title">Sensor Activity</span>
           <span className="badge badge-normal">Active Sync</span>
         </div>
+        <div className="monitor-card-title">Sensor Activity</div>
 
         <div className="monitor-card-body">
           <div className="coverage-stats-row">
@@ -181,7 +181,7 @@ export default function MonitoringCards({
               <span className="cov-text">Vitals Points</span>
             </div>
           </div>
-          <div className="monitor-meta-row" style={{ marginTop: '10px' }}>
+          <div className="monitor-meta-row">
             <span className="monitor-data-type">Sampling rate: 15-min intervals</span>
           </div>
         </div>

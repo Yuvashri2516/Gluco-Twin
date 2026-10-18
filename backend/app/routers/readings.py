@@ -10,12 +10,12 @@ Both endpoints accept an optional `hours` query parameter to
 limit how far back to look (defaults to 24 hours).
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 
 from app.database import get_db
-from app.models import GlucoseReading, VitalReading
+from app.models import GlucoseReading, VitalReading, Patient
 from app.schemas import GlucoseReadingRead, VitalReadingRead
 
 router = APIRouter(prefix="/api/readings", tags=["Readings"])
@@ -33,6 +33,10 @@ def get_glucose_readings(
     The readings are sorted chronologically so the frontend can
     plot them directly on a time-series chart.
     """
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient #{patient_id} not found.")
+
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).replace(tzinfo=None)
     readings = (
         db.query(GlucoseReading)
@@ -53,6 +57,10 @@ def get_vital_readings(
     db: Session = Depends(get_db),
 ):
     """Return heart-rate and HRV readings for a patient."""
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient #{patient_id} not found.")
+
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).replace(tzinfo=None)
     readings = (
         db.query(VitalReading)

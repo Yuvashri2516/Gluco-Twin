@@ -103,8 +103,19 @@ def get_digital_twin_intelligence(
         round(float(np.mean([r.value for r in glucose_records_24h])), 1)
         if glucose_records_24h else None
     )
+    min_glucose_24h = (
+        round(float(np.min([r.value for r in glucose_records_24h])), 1)
+        if glucose_records_24h else None
+    )
+    max_glucose_24h = (
+        round(float(np.max([r.value for r in glucose_records_24h])), 1)
+        if glucose_records_24h else None
+    )
 
     mean_glucose_1h = None
+    min_glucose_1h = None
+    max_glucose_1h = None
+    glucose_change_1h = None
     glucose_std_1h = None
     glucose_trend_slope = None
 
@@ -113,20 +124,41 @@ def get_digital_twin_intelligence(
     if glucose_records_1h:
         vals_1h = [r.value for r in glucose_records_1h]
         mean_glucose_1h = round(float(np.mean(vals_1h)), 1)
+        min_glucose_1h = round(float(np.min(vals_1h)), 1)
+        max_glucose_1h = round(float(np.max(vals_1h)), 1)
         if len(vals_1h) > 1:
+            glucose_change_1h = round(float(vals_1h[-1] - vals_1h[0]), 1)
             glucose_std_1h = round(float(np.std(vals_1h, ddof=1)), 2)
             # Slope in mg/dL per minute
             t_span_min = (glucose_records_1h[-1].timestamp - glucose_records_1h[0].timestamp).total_seconds() / 60.0
             if t_span_min > 0:
                 glucose_trend_slope = round((vals_1h[-1] - vals_1h[0]) / t_span_min, 4)
         else:
+            glucose_change_1h = 0.0
             glucose_std_1h = 0.0
             glucose_trend_slope = 0.0
 
-    if len(glucose_records_1h) < 2:
+    # Freshness evaluation
+    if not latest_g:
+        data_freshness_status = "no_data"
+        hours_since_last_reading = None
+        data_quality_warnings.append("No recorded glucose telemetry for this synthetic patient.")
+    else:
+        now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+        hours_diff = (now_utc_naive - latest_g.timestamp).total_seconds() / 3600.0
+        hours_since_last_reading = round(max(0.0, hours_diff), 1)
+        if hours_since_last_reading > 2.0:
+            data_freshness_status = "stale"
+            data_quality_warnings.append(
+                f"Telemetry is stale: latest reading was recorded {hours_since_last_reading} hours ago."
+            )
+        else:
+            data_freshness_status = "fresh"
+
+    if latest_g and len(glucose_records_1h) < 2:
         data_quality_warnings.append("Sparse glucose telemetry in the most recent 1-hour monitoring window.")
 
-    if not vital_records_1h:
+    if latest_g and not vital_records_1h:
         data_quality_warnings.append("No autonomic vital readings (HR/HRV) in the past 1 hour.")
 
     mean_hr_1h = (
@@ -143,7 +175,7 @@ def get_digital_twin_intelligence(
         db.query(Alert)
         .filter(Alert.patient_id == patient.id)
         .order_by(Alert.timestamp.desc())
-        .limit(5)
+        .limit(10)
         .all()
     )
     active_alerts_count = (
@@ -151,6 +183,21 @@ def get_digital_twin_intelligence(
         .filter(Alert.patient_id == patient.id, Alert.status == "active")
         .count()
     )
+    acknowledged_alerts_count = (
+        db.query(Alert)
+        .filter(Alert.patient_id == patient.id, Alert.status == "acknowledged")
+        .count()
+    )
+    resolved_alerts_count = (
+        db.query(Alert)
+        .filter(Alert.patient_id == patient.id, Alert.status == "resolved")
+        .count()
+    )
+    alert_severity_distribution = {
+        "critical": db.query(Alert).filter(Alert.patient_id == patient.id, Alert.severity == "critical").count(),
+        "warning": db.query(Alert).filter(Alert.patient_id == patient.id, Alert.severity == "warning").count(),
+        "info": db.query(Alert).filter(Alert.patient_id == patient.id, Alert.severity == "info").count(),
+    }
 
     recent_alerts = [
         AlertRead(
@@ -172,6 +219,7 @@ def get_digital_twin_intelligence(
         )
         for a in recent_alerts_orm
     ]
+    most_recent_alert = recent_alerts[0] if recent_alerts else None
 
     # Optional experimental prediction snapshot
     latest_prediction = None
@@ -208,6 +256,10 @@ def get_digital_twin_intelligence(
                     "spike_predicted": bool(prob >= 0.5),
                     "risk_category": "HIGH" if prob >= 0.65 else ("MODERATE" if prob >= 0.35 else "LOW"),
                     "model_version": metadata.get("model_version", "0.1.0-prototype"),
+                    "prediction_timestamp": pred_time.isoformat(),
+                    "prediction_horizon_minutes": 120,
+                    "is_uncalibrated_experimental": True,
+                    "clinical_disclaimer": "Uncalibrated prototype score; not a validated clinical probability.",
                 }
     except Exception:
         latest_prediction = None
@@ -226,15 +278,28 @@ def get_digital_twin_intelligence(
         latest_glucose_timestamp=latest_g.timestamp if latest_g else None,
         latest_heart_rate=latest_v.heart_rate if latest_v else None,
         latest_hrv=latest_v.hrv if latest_v else None,
+        latest_vital_timestamp=latest_v.timestamp if latest_v else None,
         mean_glucose_1h=mean_glucose_1h,
         mean_glucose_24h=mean_glucose_24h,
+        min_glucose_24h=min_glucose_24h,
+        max_glucose_24h=max_glucose_24h,
+        min_glucose_1h=min_glucose_1h,
+        max_glucose_1h=max_glucose_1h,
+        glucose_change_1h=glucose_change_1h,
         glucose_std_1h=glucose_std_1h,
         glucose_trend_slope=glucose_trend_slope,
         mean_hr_1h=mean_hr_1h,
         mean_hrv_1h=mean_hrv_1h,
+        data_freshness_status=data_freshness_status,
+        hours_since_last_reading=hours_since_last_reading,
         data_quality_warnings=data_quality_warnings,
         total_readings_24h=len(glucose_records_24h),
+        total_vital_readings_24h=len(vital_records_24h),
         active_alerts_count=active_alerts_count,
+        acknowledged_alerts_count=acknowledged_alerts_count,
+        resolved_alerts_count=resolved_alerts_count,
+        alert_severity_distribution=alert_severity_distribution,
+        most_recent_alert=most_recent_alert,
         recent_alerts=recent_alerts,
         latest_prediction=latest_prediction,
         disclaimer=(
@@ -258,6 +323,8 @@ def run_what_if_simulation(
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient #{request.patient_id} not found.")
 
+    sim_warnings: List[str] = []
+
     # Determine baseline glucose
     baseline_g = request.as_of_glucose
     if baseline_g is None:
@@ -267,11 +334,17 @@ def run_what_if_simulation(
             .order_by(GlucoseReading.timestamp.desc())
             .first()
         )
-        baseline_g = float(latest_r.value) if latest_r else 120.0
+        if latest_r:
+            baseline_g = float(latest_r.value)
+        else:
+            baseline_g = 110.0
+            sim_warnings.append(
+                "Patient has no recorded glucose readings; using standard simulated baseline of 110.0 mg/dL."
+            )
 
-    # Bounded inputs
-    carbs = max(0.0, min(150.0, float(request.additional_carbs_g)))
-    activity_mins = max(0.0, min(180.0, float(request.activity_minutes)))
+    # Inputs bounded by schema validation
+    carbs = float(request.additional_carbs_g)
+    activity_mins = float(request.activity_minutes)
 
     # Documented physiological heuristic parameters:
     # Body weight adjustment factor (default 70kg if unspecified)
@@ -315,6 +388,8 @@ def run_what_if_simulation(
         projected_scenario_glucose=scenario_g,
         projected_spike_risk_breach=is_spike_breach,
         spike_threshold_mg_dl=180.0,
+        formula_version="1.0.0-illustrative-heuristic",
+        data_quality_warnings=sim_warnings,
         assumptions=assumptions,
         disclaimer=(
             "SIMULATED — NOT A CLINICAL PREDICTION. "

@@ -354,15 +354,53 @@ def test_13_api_time_window_filtering_excludes_older_and_future_readings(client)
     assert len(res_1h.json()) == 0
 
 
-def test_14_test_database_remains_isolated_from_real_database():
-    """TEST 14: The test fixtures and operations remain 100% isolated from real glucotwin.db."""
-    import sqlite3
-    conn = sqlite3.connect("glucotwin.db")
-    c = conn.cursor()
-    # Read real DB counts
-    p_cnt = c.execute("SELECT count(*) FROM patients").fetchone()[0]
-    a_cnt = c.execute("SELECT count(*) FROM alerts").fetchone()[0]
-    conn.close()
+def test_14_test_database_remains_isolated_from_real_database(client, test_db_session):
+    """TEST 14: Automated tests maintain 100% database isolation using in-memory sessions."""
+    # 1. Verify dependency override actively redirects get_db
+    assert get_db in app.dependency_overrides
+    test_bind = test_db_session.get_bind()
+    assert str(test_bind.url) == "sqlite:///:memory:"
 
-    assert p_cnt == 5
-    assert a_cnt == 33
+    # 2. Record initial counts in the isolated session
+    initial_p_count = test_db_session.query(Patient).count()
+    initial_g_count = test_db_session.query(GlucoseReading).count()
+    assert initial_p_count == 2  # Fixture has Alpha and Beta
+    assert initial_g_count == 8  # 4 old + 4 recent
+
+    # 3. Verify TestClient queries execute against the in-memory session
+    res = client.get("/api/readings/glucose/1?hours=24")
+    assert res.status_code == 200
+    assert len(res.json()) == 4
+
+    # 4. Perform synthetic refresh and mutations inside the isolated test session
+    refresh_synthetic_telemetry(test_db_session)
+    refreshed_g_count = test_db_session.query(GlucoseReading).count()
+    assert refreshed_g_count > initial_g_count
+
+    # 5. Add a distinct test alert in the isolated session
+    test_alert = Alert(
+        patient_id=1,
+        severity="info",
+        message="Isolation verification test alert",
+        status="active",
+        acknowledged=False,
+        dedup_key="isolation:test:1",
+    )
+    test_db_session.add(test_alert)
+    test_db_session.commit()
+
+    # Query through test_db_session sees the new record
+    assert test_db_session.query(Alert).filter(Alert.dedup_key == "isolation:test:1").count() == 1
+
+    # 6. Verify that an independent database session remains completely unaffected
+    separate_engine = create_engine("sqlite:///:memory:", poolclass=StaticPool)
+    Base.metadata.create_all(bind=separate_engine)
+    SeparateSession = sessionmaker(bind=separate_engine)
+    separate_session = SeparateSession()
+
+    # The independent session must have 0 of the records created in test_db_session
+    assert separate_session.query(Alert).filter(Alert.dedup_key == "isolation:test:1").count() == 0
+    assert separate_session.query(GlucoseReading).count() == 0
+
+    separate_session.close()
+    separate_engine.dispose()

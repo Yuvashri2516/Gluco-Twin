@@ -29,13 +29,16 @@ import os
 # for a hackathon prototype because it needs zero setup.
 # ---------------------------------------------------------------------------
 DATABASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATABASE_URL = f"sqlite:///{os.path.join(DATABASE_DIR, 'glucotwin.db')}"
+DEFAULT_DB_PATH = os.path.join(DATABASE_DIR, "glucotwin.db")
+DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
+
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
 # `check_same_thread=False` is required for SQLite when used with FastAPI
 # because FastAPI may serve requests from different threads.
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    connect_args=connect_args,
     echo=False,  # Set to True to see generated SQL in the console (useful for debugging)
 )
 

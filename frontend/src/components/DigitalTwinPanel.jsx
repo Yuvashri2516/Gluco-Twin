@@ -86,6 +86,9 @@ export default function DigitalTwinPanel({
 
   const mean1h = twinData?.mean_glucose_1h != null ? twinData.mean_glucose_1h.toFixed(1) : null;
   const mean24h = twinData?.mean_glucose_24h != null ? twinData.mean_glucose_24h.toFixed(1) : null;
+  const min24h = twinData?.min_glucose_24h != null ? twinData.min_glucose_24h.toFixed(1) : null;
+  const max24h = twinData?.max_glucose_24h != null ? twinData.max_glucose_24h.toFixed(1) : null;
+  const change1h = twinData?.glucose_change_1h != null ? twinData.glucose_change_1h.toFixed(1) : null;
   const std1h = twinData?.glucose_std_1h != null ? twinData.glucose_std_1h.toFixed(1) : null;
   const slope = twinData?.glucose_trend_slope != null ? twinData.glucose_trend_slope.toFixed(3) : null;
 
@@ -212,6 +215,22 @@ export default function DigitalTwinPanel({
                 </span>
               </div>
               <div className="twin-param-row">
+                <span className="param-label">24h Extrema (Min &ndash; Max)</span>
+                <span className="param-value">
+                  {min24h && max24h ? `${min24h} – ${max24h} mg/dL` : '--'}
+                </span>
+              </div>
+              <div className="twin-param-row">
+                <span className="param-label">1h Trajectory Delta (&Delta;)</span>
+                <span className="param-value">
+                  {change1h != null ? (
+                    <span className={Number(change1h) > 0 ? 'highlight-warning' : 'highlight-cyan'}>
+                      {Number(change1h) > 0 ? `+${change1h}` : change1h} mg/dL
+                    </span>
+                  ) : '--'}
+                </span>
+              </div>
+              <div className="twin-param-row">
                 <span className="param-label">Glycemic Variability (&sigma;)</span>
                 <span className="param-value">
                   {std1h ? `±${std1h} mg/dL` : '--'}
@@ -249,9 +268,26 @@ export default function DigitalTwinPanel({
                 <span className="param-value">
                   {twinData?.active_alerts_count != null ? (
                     <span className={twinData.active_alerts_count > 0 ? 'highlight-critical' : 'highlight-normal'}>
-                      {twinData.active_alerts_count} Active Alerts
+                      {twinData.active_alerts_count} Active
+                      {twinData.alert_severity_distribution && (twinData.alert_severity_distribution.critical > 0 || twinData.alert_severity_distribution.warning > 0) ? (
+                        <span className="baseline-sub">
+                          {' '}({twinData.alert_severity_distribution.critical || 0} crit, {twinData.alert_severity_distribution.warning || 0} warn)
+                        </span>
+                      ) : ''}
                     </span>
                   ) : '--'}
+                </span>
+              </div>
+              <div className="twin-param-row">
+                <span className="param-label">Telemetry Freshness</span>
+                <span className="param-value">
+                  {twinData?.data_freshness_status === 'stale' ? (
+                    <span className="badge badge-warning" style={{ fontSize: '0.72rem' }}>STALE TELEMETRY</span>
+                  ) : twinData?.data_freshness_status === 'no_data' ? (
+                    <span className="badge badge-critical" style={{ fontSize: '0.72rem' }}>NO TELEMETRY</span>
+                  ) : (
+                    <span className="badge badge-normal" style={{ fontSize: '0.72rem' }}>SYNCHRONIZED</span>
+                  )}
                 </span>
               </div>
               <div className="twin-param-row">

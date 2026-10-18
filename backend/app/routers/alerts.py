@@ -116,6 +116,12 @@ def acknowledge_alert(alert_id: int, db: Session = Depends(get_db)):
     if not alert:
         raise HTTPException(status_code=404, detail=f"Alert #{alert_id} not found.")
 
+    if alert.status == "resolved":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid alert transition: Alert #{alert_id} is already resolved and cannot be acknowledged.",
+        )
+
     alert.acknowledged = True
     alert.acknowledged_at = datetime.now(timezone.utc)
     if alert.status == "active":
@@ -132,6 +138,12 @@ def resolve_alert(alert_id: int, db: Session = Depends(get_db)):
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     if not alert:
         raise HTTPException(status_code=404, detail=f"Alert #{alert_id} not found.")
+
+    if alert.status == "resolved":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid alert transition: Alert #{alert_id} is already resolved.",
+        )
 
     alert.acknowledged = True
     if not alert.acknowledged_at:

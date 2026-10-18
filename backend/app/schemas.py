@@ -14,7 +14,7 @@ WHY SEPARATE SCHEMAS FROM MODELS?
   instances (which use attribute access, not dict access).
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from typing import Optional
 
@@ -125,7 +125,7 @@ class AlertEvaluationResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Digital Twin Detail & Summary Schema (Phase 5)
+# Digital Twin Detail & Summary Schema (Phase 3 / Phase 5)
 # ---------------------------------------------------------------------------
 class DigitalTwinDetailResponse(BaseModel):
     patient_id: int
@@ -143,19 +143,34 @@ class DigitalTwinDetailResponse(BaseModel):
     latest_glucose_timestamp: Optional[datetime] = None
     latest_heart_rate: Optional[float] = None
     latest_hrv: Optional[float] = None
+    latest_vital_timestamp: Optional[datetime] = None
     
     # Rolling metrics
     mean_glucose_1h: Optional[float] = None
     mean_glucose_24h: Optional[float] = None
+    min_glucose_24h: Optional[float] = None
+    max_glucose_24h: Optional[float] = None
+    min_glucose_1h: Optional[float] = None
+    max_glucose_1h: Optional[float] = None
+    glucose_change_1h: Optional[float] = None
     glucose_std_1h: Optional[float] = None
     glucose_trend_slope: Optional[float] = None
     mean_hr_1h: Optional[float] = None
     mean_hrv_1h: Optional[float] = None
     
     # Status and data quality
+    data_freshness_status: str = "fresh"  # "fresh", "stale", "no_data"
+    hours_since_last_reading: Optional[float] = None
     data_quality_warnings: list[str] = []
     total_readings_24h: int = 0
+    total_vital_readings_24h: int = 0
+
+    # Alert state summary
     active_alerts_count: int = 0
+    acknowledged_alerts_count: int = 0
+    resolved_alerts_count: int = 0
+    alert_severity_distribution: dict[str, int] = {}
+    most_recent_alert: Optional[AlertRead] = None
     recent_alerts: list[AlertRead] = []
     
     # Experimental model inference summary
@@ -164,13 +179,28 @@ class DigitalTwinDetailResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# What-If Counterfactual Simulation Schemas (Phase 5)
+# What-If Counterfactual Simulation Schemas (Phase 3 / Phase 5)
 # ---------------------------------------------------------------------------
 class WhatIfSimulationRequest(BaseModel):
     patient_id: int
-    additional_carbs_g: float = 30.0
-    activity_minutes: float = 0.0
-    as_of_glucose: Optional[float] = None
+    additional_carbs_g: float = Field(
+        default=30.0,
+        ge=0.0,
+        le=300.0,
+        description="Hypothetical meal carbohydrates in grams (0 to 300g)",
+    )
+    activity_minutes: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=360.0,
+        description="Hypothetical moderate physical activity in minutes (0 to 360 min)",
+    )
+    as_of_glucose: Optional[float] = Field(
+        default=None,
+        ge=20.0,
+        le=600.0,
+        description="Optional baseline glucose in mg/dL (20 to 600 mg/dL)",
+    )
 
 
 class WhatIfSimulationResponse(BaseModel):
@@ -184,6 +214,8 @@ class WhatIfSimulationResponse(BaseModel):
     projected_scenario_glucose: float
     projected_spike_risk_breach: bool
     spike_threshold_mg_dl: float = 180.0
+    formula_version: str = "1.0.0-illustrative-heuristic"
+    data_quality_warnings: list[str] = []
     assumptions: list[str]
     disclaimer: str
 

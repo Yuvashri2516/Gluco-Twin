@@ -222,7 +222,21 @@ export default function WhatIfSimulation({ selectedPatient }) {
 
           {/* Documented Assumptions Box */}
           <div className="sim-assumptions-box">
-            <h4>Documented Heuristic Assumptions:</h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <h4 style={{ margin: 0 }}>Documented Heuristic Assumptions:</h4>
+              <span className="badge badge-neutral" style={{ fontSize: '0.68rem' }}>
+                {simulationResult?.formula_version || 'v1.0.0-heuristic'}
+              </span>
+            </div>
+
+            {simulationResult?.data_quality_warnings && simulationResult.data_quality_warnings.length > 0 && (
+              <div style={{ margin: '6px 0 10px', padding: '6px 10px', background: 'rgba(234, 179, 8, 0.1)', borderRadius: '4px', borderLeft: '3px solid #eab308', fontSize: '0.78rem', color: '#fde047' }}>
+                {simulationResult.data_quality_warnings.map((w, i) => (
+                  <div key={i}>&#9888; {w}</div>
+                ))}
+              </div>
+            )}
+
             <ul>
               {simulationResult?.assumptions ? (
                 simulationResult.assumptions.map((assump, idx) => (
