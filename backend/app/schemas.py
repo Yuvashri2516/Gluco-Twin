@@ -29,6 +29,7 @@ class PatientBase(BaseModel):
     gender: str
     diabetes_type: str
     years_since_diagnosis: int = 0
+    historical_diagnoses: Optional[str] = "None"
     weight_kg: Optional[float] = None
     height_cm: Optional[float] = None
 
@@ -41,9 +42,86 @@ class PatientCreate(PatientBase):
 class PatientRead(PatientBase):
     """Schema returned when reading a patient (GET response)."""
     id: int
+    calculated_bmi: Optional[float] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Laboratory & Genetic Schemas (Historical EHR Extensions)
+# ---------------------------------------------------------------------------
+class LabResultRead(BaseModel):
+    id: int
+    patient_id: int
+    test_name: str
+    result: float
+    unit: str
+    measurement_date: datetime
+    reference_range: Optional[str] = None
+    is_synthetic: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GeneticMarkerRead(BaseModel):
+    id: int
+    patient_id: int
+    marker_id: str
+    gene: str
+    genotype: str
+    recorded_at: datetime
+    data_source: str
+    is_synthetic: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Sleep & Step Telemetry Schemas (Dynamic Time-Series Extensions)
+# ---------------------------------------------------------------------------
+class SleepRecordRead(BaseModel):
+    id: int
+    patient_id: int
+    start_time: datetime
+    end_time: datetime
+    stage: str
+    duration_minutes: float
+    is_synthetic: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SleepSummaryResponse(BaseModel):
+    patient_id: int
+    total_sleep_hours: float
+    deep_sleep_hours: float
+    rem_sleep_hours: float
+    light_sleep_hours: float
+    sleep_efficiency_pct: float
+    records: list[SleepRecordRead]
+    is_synthetic_data: bool = True
+
+
+class StepRecordRead(BaseModel):
+    id: int
+    patient_id: int
+    timestamp: datetime
+    interval_steps: int
+    daily_cumulative_steps: int
+    is_synthetic: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StepSummaryResponse(BaseModel):
+    patient_id: int
+    total_steps_24h: int
+    latest_interval_steps: int
+    peak_interval_steps: int
+    hourly_average_steps: float
+    records: list[StepRecordRead]
+    is_synthetic_data: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +212,7 @@ class DigitalTwinDetailResponse(BaseModel):
     age: int
     gender: str
     years_since_diagnosis: int
+    historical_diagnoses: Optional[str] = "None"
     weight_kg: Optional[float] = None
     height_cm: Optional[float] = None
     bmi: Optional[float] = None
@@ -157,6 +236,10 @@ class DigitalTwinDetailResponse(BaseModel):
     glucose_trend_slope: Optional[float] = None
     mean_hr_1h: Optional[float] = None
     mean_hrv_1h: Optional[float] = None
+
+    # Sleep & Activity summaries
+    latest_sleep_summary: Optional[dict] = None
+    latest_step_summary: Optional[dict] = None
     
     # Status and data quality
     data_freshness_status: str = "fresh"  # "fresh", "stale", "no_data"
@@ -253,4 +336,38 @@ class PredictionResponse(BaseModel):
     data_quality_warnings: list[str]
     is_synthetic_data: bool = True
     clinical_disclaimer: str
+
+
+# ---------------------------------------------------------------------------
+# Simulated Sensor Feed Schemas (Phase 5: Demonstrable Twin Update Workflow)
+# ---------------------------------------------------------------------------
+class SimulatedSensorFeedRequest(BaseModel):
+    patient_id: int
+    glucose_value: Optional[float] = Field(default=None, ge=20.0, le=600.0, description="Optional explicit target glucose in mg/dL")
+    heart_rate: Optional[float] = Field(default=None, ge=30.0, le=220.0, description="Optional explicit heart rate in bpm")
+    hrv: Optional[float] = Field(default=None, ge=1.0, le=300.0, description="Optional explicit HRV in ms")
+    interval_steps: Optional[int] = Field(default=None, ge=0, le=10000, description="Optional explicit interval steps")
+    glucose_offset_mg_dl: Optional[float] = Field(default=0.0, ge=-100.0, le=100.0, description="Optional glucose perturbation in mg/dL")
+    heart_rate_offset: Optional[float] = Field(default=0.0, ge=-50.0, le=50.0)
+    steps_delta: Optional[int] = Field(default=120, ge=0, le=3000)
+
+
+class SimulatedSensorFeedResponse(BaseModel):
+    patient_id: int
+    patient_name: str
+    feed_timestamp: datetime
+    ingested_glucose: float
+    ingested_heart_rate: float
+    ingested_hrv: float
+    ingested_interval_steps: int
+    new_cumulative_steps: int
+    new_glucose_reading: GlucoseReadingRead
+    new_vital_reading: VitalReadingRead
+    new_step_reading: StepRecordRead
+    recalculated_twin: DigitalTwinDetailResponse
+    recalculated_prediction: Optional[dict] = None
+    new_alerts_triggered: list[AlertRead] = []
+    feed_status: str = "INGESTED_AND_EVALUATED"
+    is_synthetic_data: bool = True
+    message: str
 

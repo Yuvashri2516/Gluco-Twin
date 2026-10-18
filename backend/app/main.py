@@ -21,12 +21,36 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy import text
 from app.database import engine, Base, SessionLocal
-from app.models import Patient, GlucoseReading, VitalReading, DigitalTwinState, Alert  # noqa: F401  (imported so Base.metadata knows about them)
+from app.models import (
+    Patient,
+    GlucoseReading,
+    VitalReading,
+    DigitalTwinState,
+    Alert,
+    LabResult,
+    GeneticMarker,
+    SleepRecord,
+    StepRecord,
+)  # noqa: F401  (imported so Base.metadata knows about them)
 from app.seed import seed_database
 from app.schemas import HealthCheck
 from app.routers import patients, readings, predictions, alerts, twin
 from app.alerts_engine import ensure_alert_columns, evaluate_all_alerts_for_patient
+
+
+def ensure_patient_columns(engine) -> None:
+    """Ensure the SQLite patients table contains historical_diagnoses column non-destructively."""
+    with engine.connect() as conn:
+        try:
+            res = conn.execute(text("PRAGMA table_info(patients)")).fetchall()
+            existing_cols = {row[1] for row in res}
+            if "historical_diagnoses" not in existing_cols:
+                conn.execute(text("ALTER TABLE patients ADD COLUMN historical_diagnoses TEXT DEFAULT 'None'"))
+                conn.commit()
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +70,7 @@ async def lifespan(app: FastAPI):
     # Create all tables that don't exist yet
     Base.metadata.create_all(bind=engine)
     ensure_alert_columns(engine)
+    ensure_patient_columns(engine)
     print("[OK] Database tables created / verified.")
 
     # Seed synthetic data (idempotent -- safe to call every restart)
@@ -121,6 +146,7 @@ app.include_router(twin.router)
 # Health-check endpoint  (the simplest possible smoke test)
 # ---------------------------------------------------------------------------
 @app.get("/health", response_model=HealthCheck, tags=["System"])
+@app.get("/api/health", response_model=HealthCheck, tags=["System"])
 def health_check():
     """
     Returns OK if the server is running and the database file exists.

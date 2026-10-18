@@ -43,6 +43,7 @@ class Patient(Base):
     gender        = Column(String(10), nullable=False)
     diabetes_type = Column(String(20), nullable=False)          # "Type 1", "Type 2", "Pre-diabetic"
     years_since_diagnosis = Column(Integer, default=0)
+    historical_diagnoses  = Column(Text, default="None")
     weight_kg     = Column(Float)
     height_cm     = Column(Float)
     created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -53,6 +54,16 @@ class Patient(Base):
     vital_readings   = relationship("VitalReading",   back_populates="patient", lazy="dynamic")
     twin_states      = relationship("DigitalTwinState", back_populates="patient", lazy="dynamic")
     alerts           = relationship("Alert", back_populates="patient", lazy="dynamic")
+    lab_results      = relationship("LabResult", back_populates="patient", lazy="dynamic", cascade="all, delete-orphan")
+    genetic_markers  = relationship("GeneticMarker", back_populates="patient", lazy="dynamic", cascade="all, delete-orphan")
+    sleep_records    = relationship("SleepRecord", back_populates="patient", lazy="dynamic", cascade="all, delete-orphan")
+    step_records     = relationship("StepRecord", back_populates="patient", lazy="dynamic", cascade="all, delete-orphan")
+
+    @property
+    def calculated_bmi(self):
+        if self.weight_kg and self.height_cm and self.height_cm > 0:
+            return round(self.weight_kg / ((self.height_cm / 100.0) ** 2), 1)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -151,4 +162,88 @@ class Alert(Base):
     dedup_key       = Column(String(120), nullable=True, unique=True, index=True)
 
     patient = relationship("Patient", back_populates="alerts")
+
+
+# ---------------------------------------------------------------------------
+# Laboratory Results (Historical EHR panel: HbA1c, Lipids, Fasting Glucose)
+# ---------------------------------------------------------------------------
+class LabResult(Base):
+    """
+    Structured synthetic laboratory panel records.
+    Explicitly labeled as synthetic to comply with healthcare privacy requirements.
+    """
+    __tablename__ = "lab_results"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    patient_id       = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    test_name        = Column(String(80), nullable=False, index=True)  # HbA1c, Fasting Blood Glucose, Total Cholesterol, HDL, LDL, Triglycerides
+    result           = Column(Float, nullable=False)
+    unit             = Column(String(30), nullable=False)              # %, mg/dL
+    measurement_date = Column(DateTime, nullable=False, index=True)
+    reference_range  = Column(String(50), nullable=True)               # e.g., "< 5.7%", "< 100 mg/dL"
+    is_synthetic     = Column(Boolean, default=True, nullable=False)
+
+    patient = relationship("Patient", back_populates="lab_results")
+
+
+# ---------------------------------------------------------------------------
+# Genetic Markers (Synthetic Genotypic Context)
+# ---------------------------------------------------------------------------
+class GeneticMarker(Base):
+    """
+    Simulated genotype records for diabetes susceptibility markers (e.g., TCF7L2, PPARG).
+    Explicitly labeled as synthetic demonstration data without clinical claims.
+    """
+    __tablename__ = "genetic_markers"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    patient_id       = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    marker_id        = Column(String(80), nullable=False, index=True)  # e.g., "rs7903146"
+    gene             = Column(String(50), nullable=False)              # e.g., "TCF7L2"
+    genotype         = Column(String(60), nullable=False)              # e.g., "CT (Elevated risk allele)"
+    recorded_at      = Column(DateTime, nullable=False)
+    data_source      = Column(String(100), default="Simulated Microarray Panel")
+    is_synthetic     = Column(Boolean, default=True, nullable=False)
+
+    patient = relationship("Patient", back_populates="genetic_markers")
+
+
+# ---------------------------------------------------------------------------
+# Sleep Telemetry (Dynamic Time-Series: Stages & Durations)
+# ---------------------------------------------------------------------------
+class SleepRecord(Base):
+    """
+    Synthetic sleep architecture records (light, deep, REM, awake).
+    """
+    __tablename__ = "sleep_records"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    patient_id       = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    start_time       = Column(DateTime, nullable=False, index=True)
+    end_time         = Column(DateTime, nullable=False, index=True)
+    stage            = Column(String(30), nullable=False)              # "light", "deep", "rem", "awake"
+    duration_minutes = Column(Float, nullable=False)
+    is_synthetic     = Column(Boolean, default=True, nullable=False)
+
+    patient = relationship("Patient", back_populates="sleep_records")
+
+
+# ---------------------------------------------------------------------------
+# Step-Count Telemetry (Dynamic Time-Series: Interval & Daily Cumulative)
+# ---------------------------------------------------------------------------
+class StepRecord(Base):
+    """
+    Synthetic physical activity records distinguishing 15-minute interval steps
+    from daily cumulative step totals.
+    """
+    __tablename__ = "step_records"
+
+    id                    = Column(Integer, primary_key=True, index=True)
+    patient_id            = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    timestamp             = Column(DateTime, nullable=False, index=True)
+    interval_steps        = Column(Integer, nullable=False)             # Steps taken in the 15-min interval
+    daily_cumulative_steps= Column(Integer, nullable=False)             # Cumulative steps on that calendar day up to timestamp
+    is_synthetic          = Column(Boolean, default=True, nullable=False)
+
+    patient = relationship("Patient", back_populates="step_records")
 

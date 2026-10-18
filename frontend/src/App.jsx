@@ -10,6 +10,8 @@ import DigitalTwinPanel from './components/DigitalTwinPanel';
 import PredictionsPanel from './components/PredictionsPanel';
 import AlertsPanel from './components/AlertsPanel';
 import WhatIfSimulation from './components/WhatIfSimulation';
+import PatientEhrHistory from './components/PatientEhrHistory';
+import SleepActivityPanel from './components/SleepActivityPanel';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 import ErrorBanner from './components/Common/ErrorBanner';
 import {
@@ -204,10 +206,16 @@ export default function App() {
                     hours={hours}
                   />
 
+                  <SleepActivityPanel
+                    selectedPatient={selectedPatient}
+                    hours={hours}
+                  />
+
                   <DigitalTwinPanel
                     selectedPatient={selectedPatient}
                     glucoseReadings={glucoseReadings}
                     vitalReadings={vitalReadings}
+                    onFeedIngested={handleRefresh}
                   />
 
                   <PredictionsPanel selectedPatient={selectedPatient} />
@@ -222,25 +230,20 @@ export default function App() {
                 </>
               )}
 
-              {/* TAB 2: PATIENTS */}
-              {activeTab === 'patients' && (
-                <div className="section-container">
-                  <div className="section-header-banner">
-                    <h2 className="section-title">Cohort &amp; Patient Profiles</h2>
-                    <p className="section-desc">
-                      Demographic records, clinical types, and baseline physical scale fetched from the SQLite database.
-                    </p>
-                  </div>
+              {/* TAB 2: PATIENT & EHR HISTORY */}
+              {(activeTab === 'ehr' || activeTab === 'patients') && (
+                <>
                   <PatientOverview
                     patients={patients}
                     selectedPatient={selectedPatient}
                     onSelectPatient={setSelectedPatientId}
                     isLoading={isLoadingPatients}
                   />
-                </div>
+                  <PatientEhrHistory selectedPatient={selectedPatient} />
+                </>
               )}
 
-              {/* TAB 3: GLUCOSE MONITORING */}
+              {/* TAB 3: GLUCOSE TELEMETRY */}
               {activeTab === 'glucose' && (
                 <div className="section-container">
                   <div className="section-header-banner">
@@ -262,7 +265,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* TAB 4: VITAL SIGNS */}
+              {/* TAB 4: AUTONOMIC VITALS */}
               {activeTab === 'vitals' && (
                 <div className="section-container">
                   <h2 className="section-title" style={{ marginBottom: '6px' }}>Autonomic &amp; Cardiovascular Monitoring</h2>
@@ -282,30 +285,46 @@ export default function App() {
                 </div>
               )}
 
-              {/* TAB 5: DIGITAL TWIN */}
+              {/* TAB 5: SLEEP & ACTIVITY */}
+              {activeTab === 'sleep_activity' && (
+                <SleepActivityPanel
+                  selectedPatient={selectedPatient}
+                  hours={hours}
+                />
+              )}
+
+              {/* TAB 6: DIGITAL TWIN */}
               {activeTab === 'twin' && (
                 <>
                   <DigitalTwinPanel
                     selectedPatient={selectedPatient}
                     glucoseReadings={glucoseReadings}
                     vitalReadings={vitalReadings}
+                    onFeedIngested={handleRefresh}
                   />
                   <WhatIfSimulation selectedPatient={selectedPatient} />
                 </>
               )}
 
-              {/* TAB 6: PREDICTIONS */}
+              {/* TAB 7: PREDICTIONS */}
               {activeTab === 'predictions' && (
                 <PredictionsPanel selectedPatient={selectedPatient} />
               )}
 
-              {/* TAB 7: ALERTS */}
+              {/* TAB 8: ALERTS */}
               {activeTab === 'alerts' && (
                 <AlertsPanel
                   selectedPatient={selectedPatient}
                   onSelectPatient={setSelectedPatientId}
                   onAlertsUpdated={loadNotifications}
                 />
+              )}
+
+              {/* TAB 9: WHAT-IF SIMULATION */}
+              {activeTab === 'simulation' && (
+                <div className="section-container">
+                  <WhatIfSimulation selectedPatient={selectedPatient} />
+                </div>
               )}
             </>
           )}

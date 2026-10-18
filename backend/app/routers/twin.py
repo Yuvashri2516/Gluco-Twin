@@ -15,12 +15,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Patient, GlucoseReading, VitalReading, Alert
+from app.models import Patient, GlucoseReading, VitalReading, Alert, SleepRecord, StepRecord
 from app.schemas import (
     DigitalTwinDetailResponse,
     WhatIfSimulationRequest,
     WhatIfSimulationResponse,
     AlertRead,
+    SimulatedSensorFeedRequest,
+    SimulatedSensorFeedResponse,
+    GlucoseReadingRead,
+    VitalReadingRead,
+    StepRecordRead,
 )
 from app.alerts_engine import evaluate_all_alerts_for_patient
 from app.ml.pipeline import (
@@ -264,6 +269,54 @@ def get_digital_twin_intelligence(
     except Exception:
         latest_prediction = None
 
+    # Fetch latest sleep records & step records for twin context
+    latest_sleep = (
+        db.query(SleepRecord)
+        .filter(SleepRecord.patient_id == patient.id)
+        .order_by(SleepRecord.end_time.desc())
+        .first()
+    )
+    latest_step = (
+        db.query(StepRecord)
+        .filter(StepRecord.patient_id == patient.id)
+        .order_by(StepRecord.timestamp.desc())
+        .first()
+    )
+
+    sleep_summary = None
+    if latest_sleep:
+        sleep_records_24h = (
+            db.query(SleepRecord)
+            .filter(
+                SleepRecord.patient_id == patient.id,
+                SleepRecord.end_time >= cutoff_24h,
+            )
+            .all()
+        )
+        total_sleep_m = sum(r.duration_minutes for r in sleep_records_24h if r.stage in ("light", "deep", "rem"))
+        sleep_summary = {
+            "total_sleep_hours": round(total_sleep_m / 60.0, 1),
+            "stages_recorded": len(sleep_records_24h),
+            "latest_stage": latest_sleep.stage,
+        }
+
+    step_summary = None
+    if latest_step:
+        step_records_24h = (
+            db.query(StepRecord)
+            .filter(
+                StepRecord.patient_id == patient.id,
+                StepRecord.timestamp >= cutoff_24h,
+            )
+            .all()
+        )
+        total_steps = sum(r.interval_steps for r in step_records_24h)
+        step_summary = {
+            "total_steps_24h": total_steps,
+            "latest_interval_steps": latest_step.interval_steps,
+            "daily_cumulative_steps": latest_step.daily_cumulative_steps,
+        }
+
     return DigitalTwinDetailResponse(
         patient_id=patient.id,
         patient_name=patient.name,
@@ -271,6 +324,7 @@ def get_digital_twin_intelligence(
         age=patient.age,
         gender=patient.gender,
         years_since_diagnosis=patient.years_since_diagnosis,
+        historical_diagnoses=getattr(patient, "historical_diagnoses", "None") or "None",
         weight_kg=patient.weight_kg,
         height_cm=patient.height_cm,
         bmi=bmi,
@@ -290,6 +344,8 @@ def get_digital_twin_intelligence(
         glucose_trend_slope=glucose_trend_slope,
         mean_hr_1h=mean_hr_1h,
         mean_hrv_1h=mean_hrv_1h,
+        latest_sleep_summary=sleep_summary,
+        latest_step_summary=step_summary,
         data_freshness_status=data_freshness_status,
         hours_since_last_reading=hours_since_last_reading,
         data_quality_warnings=data_quality_warnings,
@@ -396,4 +452,168 @@ def run_what_if_simulation(
             "Illustrative academic scenario calculator only. "
             "Do not use for insulin dosing, dietary prescriptions, or medical decisions."
         ),
+    )
+
+
+@router.post("/api/digital-twin/simulate-feed", response_model=SimulatedSensorFeedResponse)
+def simulate_sensor_feed(
+    request: SimulatedSensorFeedRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Demonstrable controlled synthetic sensor-update workflow:
+    Advances the selected patient's telemetry by a 15-minute sensor epoch.
+    Generates new glucose, heart rate, HRV, and step readings, persists them safely,
+    re-evaluates alerts, and computes updated digital twin intelligence.
+    """
+    patient = db.query(Patient).filter(Patient.id == request.patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient #{request.patient_id} not found.")
+
+    latest_g = (
+        db.query(GlucoseReading)
+        .filter(GlucoseReading.patient_id == patient.id, GlucoseReading.is_valid == True)
+        .order_by(GlucoseReading.timestamp.desc())
+        .first()
+    )
+    latest_v = (
+        db.query(VitalReading)
+        .filter(VitalReading.patient_id == patient.id)
+        .order_by(VitalReading.timestamp.desc())
+        .first()
+    )
+    latest_step = (
+        db.query(StepRecord)
+        .filter(StepRecord.patient_id == patient.id)
+        .order_by(StepRecord.timestamp.desc())
+        .first()
+    )
+
+    ref_time = latest_g.timestamp if latest_g else datetime.now(timezone.utc).replace(tzinfo=None)
+    next_ts = ref_time + timedelta(minutes=15)
+
+    # 1. Calculate new synthetic readings
+    if request.glucose_value is not None:
+        new_g_val = float(request.glucose_value)
+    else:
+        prev_g = float(latest_g.value) if latest_g else 125.0
+        # Modest random walk + user-specified perturbation
+        noise = np.random.normal(0.0, 3.5)
+        new_g_val = round(max(45.0, min(350.0, prev_g + noise + float(request.glucose_offset_mg_dl))), 1)
+
+    if request.heart_rate is not None:
+        new_hr_val = float(request.heart_rate)
+    else:
+        prev_hr = float(latest_v.heart_rate) if latest_v and latest_v.heart_rate else 72.0
+        new_hr_val = round(max(48.0, min(160.0, prev_hr + np.random.normal(0.0, 2.0) + float(request.heart_rate_offset))), 1)
+
+    if request.hrv is not None:
+        new_hrv_val = float(request.hrv)
+    else:
+        prev_hrv = float(latest_v.hrv) if latest_v and latest_v.hrv else 48.0
+        new_hrv_val = round(max(15.0, min(100.0, prev_hrv + np.random.normal(0.0, 2.5))), 1)
+
+    # Step interval & daily cumulative steps
+    if request.interval_steps is not None:
+        interval_steps = int(max(0, request.interval_steps))
+    else:
+        interval_steps = int(max(0, request.steps_delta or 120))
+    prev_cum_steps = latest_step.daily_cumulative_steps if latest_step else 0
+    # Reset cumulative steps if day changes
+    if latest_step and latest_step.timestamp.date() != next_ts.date():
+        cum_steps = interval_steps
+    else:
+        cum_steps = prev_cum_steps + interval_steps
+
+    # 2. Persist new telemetry
+    new_g = GlucoseReading(
+        patient_id=patient.id,
+        timestamp=next_ts,
+        value=new_g_val,
+        is_valid=True,
+    )
+    new_v = VitalReading(
+        patient_id=patient.id,
+        timestamp=next_ts,
+        heart_rate=new_hr_val,
+        hrv=new_hrv_val,
+    )
+    new_s = StepRecord(
+        patient_id=patient.id,
+        timestamp=next_ts,
+        interval_steps=interval_steps,
+        daily_cumulative_steps=cum_steps,
+        is_synthetic=True,
+    )
+
+    db.add(new_g)
+    db.add(new_v)
+    db.add(new_s)
+    db.commit()
+    db.refresh(new_g)
+    db.refresh(new_v)
+    db.refresh(new_s)
+
+    # 3. Re-evaluate alerts
+    new_alerts = evaluate_all_alerts_for_patient(db, patient)
+
+    # 4. Re-calculate twin intelligence
+    updated_twin = get_digital_twin_intelligence(patient.id, db)
+
+    return SimulatedSensorFeedResponse(
+        patient_id=patient.id,
+        patient_name=patient.name,
+        feed_timestamp=next_ts,
+        ingested_glucose=new_g_val,
+        ingested_heart_rate=new_hr_val,
+        ingested_hrv=new_hrv_val,
+        ingested_interval_steps=interval_steps,
+        new_cumulative_steps=cum_steps,
+        new_glucose_reading=GlucoseReadingRead(
+            id=new_g.id,
+            patient_id=new_g.patient_id,
+            timestamp=new_g.timestamp,
+            value=new_g.value,
+            is_valid=new_g.is_valid,
+        ),
+        new_vital_reading=VitalReadingRead(
+            id=new_v.id,
+            patient_id=new_v.patient_id,
+            timestamp=new_v.timestamp,
+            heart_rate=new_v.heart_rate,
+            hrv=new_v.hrv,
+        ),
+        new_step_reading=StepRecordRead(
+            id=new_s.id,
+            patient_id=new_s.patient_id,
+            timestamp=new_s.timestamp,
+            interval_steps=new_s.interval_steps,
+            daily_cumulative_steps=new_s.daily_cumulative_steps,
+            is_synthetic=True,
+        ),
+        recalculated_twin=updated_twin,
+        recalculated_prediction=updated_twin.latest_prediction,
+        new_alerts_triggered=[
+            AlertRead(
+                id=a.id,
+                patient_id=a.patient_id,
+                patient_name=patient.name,
+                timestamp=a.timestamp,
+                severity=a.severity,
+                message=a.message,
+                alert_type=a.alert_type,
+                source=a.source or "observed_reading",
+                status=a.status or "active",
+                trigger_value=a.trigger_value,
+                threshold=a.threshold,
+                acknowledged=bool(a.acknowledged),
+                acknowledged_at=a.acknowledged_at,
+                resolved_at=a.resolved_at,
+                dedup_key=a.dedup_key,
+            )
+            for a in new_alerts
+        ],
+        feed_status="INGESTED_AND_EVALUATED",
+        is_synthetic_data=True,
+        message=f"Simulated sensor feed epoch ingested for {patient.name} at {next_ts.isoformat()}. Telemetry, alerts, and digital twin state updated.",
     )

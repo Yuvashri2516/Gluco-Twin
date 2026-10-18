@@ -25,7 +25,15 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 from sqlalchemy.orm import Session
 
-from app.models import Patient, GlucoseReading, VitalReading
+from app.models import (
+    Patient,
+    GlucoseReading,
+    VitalReading,
+    LabResult,
+    GeneticMarker,
+    SleepRecord,
+    StepRecord,
+)
 
 # ---------------------------------------------------------------------------
 # Reproducibility: fix the random seed so the demo always generates
@@ -43,6 +51,7 @@ SYNTHETIC_PATIENTS = [
         "gender": "Female",
         "diabetes_type": "Type 2",
         "years_since_diagnosis": 8,
+        "historical_diagnoses": "Hypertension, Hyperlipidemia, Diabetic Neuropathy (Mild)",
         "weight_kg": 72.0,
         "height_cm": 160.0,
     },
@@ -52,6 +61,7 @@ SYNTHETIC_PATIENTS = [
         "gender": "Male",
         "diabetes_type": "Type 2",
         "years_since_diagnosis": 5,
+        "historical_diagnoses": "Hypertension, Essential Tremor",
         "weight_kg": 85.0,
         "height_cm": 175.0,
     },
@@ -61,6 +71,7 @@ SYNTHETIC_PATIENTS = [
         "gender": "Female",
         "diabetes_type": "Type 1",
         "years_since_diagnosis": 18,
+        "historical_diagnoses": "Type 1 Diabetes (Brittle), Celiac Disease, Autoimmune Thyroiditis",
         "weight_kg": 58.0,
         "height_cm": 162.0,
     },
@@ -70,6 +81,7 @@ SYNTHETIC_PATIENTS = [
         "gender": "Male",
         "diabetes_type": "Type 2",
         "years_since_diagnosis": 15,
+        "historical_diagnoses": "Hypertension, Coronary Artery Disease (CAD), Microalbuminuria",
         "weight_kg": 90.0,
         "height_cm": 178.0,
     },
@@ -79,6 +91,7 @@ SYNTHETIC_PATIENTS = [
         "gender": "Female",
         "diabetes_type": "Pre-diabetic",
         "years_since_diagnosis": 1,
+        "historical_diagnoses": "Gestational Impaired Glucose Tolerance (Historical), Mild Dyslipidemia",
         "weight_kg": 65.0,
         "height_cm": 158.0,
     },
@@ -277,30 +290,158 @@ def refresh_synthetic_telemetry(db: Session, max_catchup_hours: int = 72) -> int
     return total_added
 
 
+def seed_patient_labs_if_missing(db: Session, patient: Patient, now: datetime):
+    """Seed historical laboratory panels (HbA1c, fasting glucose, lipids) if not already present."""
+    if db.query(LabResult).filter(LabResult.patient_id == patient.id).first() is not None:
+        return
+    base_a1c = {
+        "Type 1": 7.8,
+        "Type 2": 7.4 if patient.age > 50 else 7.0,
+        "Pre-diabetic": 5.9,
+    }.get(patient.diabetes_type, 6.8)
+
+    dates = [
+        now - timedelta(days=365),
+        now - timedelta(days=180),
+        now - timedelta(days=30),
+    ]
+
+    for idx, d in enumerate(dates):
+        a1c_val = round(base_a1c + (0.3 - idx * 0.2), 1)
+        fasting_g = round(a1c_val * 18.0 - 10.0, 1)
+        cholesterol = round(195.0 + (patient.id * 5) - (idx * 4), 1)
+        hdl = round(48.0 + (idx * 2) if patient.gender == "Female" else 42.0 + (idx * 2), 1)
+        ldl = round(cholesterol - hdl - 30.0, 1)
+        trig = round(145.0 + (patient.id * 8) - (idx * 5), 1)
+
+        db.add(LabResult(patient_id=patient.id, test_name="HbA1c", result=a1c_val, unit="%", measurement_date=d, reference_range="< 5.7%", is_synthetic=True))
+        db.add(LabResult(patient_id=patient.id, test_name="Fasting Blood Glucose", result=fasting_g, unit="mg/dL", measurement_date=d, reference_range="70 - 99 mg/dL", is_synthetic=True))
+        db.add(LabResult(patient_id=patient.id, test_name="Total Cholesterol", result=cholesterol, unit="mg/dL", measurement_date=d, reference_range="< 200 mg/dL", is_synthetic=True))
+        db.add(LabResult(patient_id=patient.id, test_name="HDL Cholesterol", result=hdl, unit="mg/dL", measurement_date=d, reference_range="> 50 mg/dL" if patient.gender == "Female" else "> 40 mg/dL", is_synthetic=True))
+        db.add(LabResult(patient_id=patient.id, test_name="LDL Cholesterol", result=ldl, unit="mg/dL", measurement_date=d, reference_range="< 100 mg/dL", is_synthetic=True))
+        db.add(LabResult(patient_id=patient.id, test_name="Triglycerides", result=trig, unit="mg/dL", measurement_date=d, reference_range="< 150 mg/dL", is_synthetic=True))
+
+
+def seed_patient_genetics_if_missing(db: Session, patient: Patient):
+    """Seed synthetic genetic susceptibility markers if not already present."""
+    if db.query(GeneticMarker).filter(GeneticMarker.patient_id == patient.id).first() is not None:
+        return
+    markers = [
+        {"marker_id": "rs7903146", "gene": "TCF7L2", "genotype": "CT (Heterozygous risk variant)" if "Type 2" in patient.diabetes_type else "CC (Ancestral allele)"},
+        {"marker_id": "rs1801282", "gene": "PPARG", "genotype": "Pro12Ala (Protective variant)" if patient.diabetes_type == "Pre-diabetic" else "Pro12Pro (Wild-type)"},
+        {"marker_id": "rs5219", "gene": "KCNJ11", "genotype": "EK (Heterozygous risk variant)" if "Type" in patient.diabetes_type else "EE (Homozygous normal)"},
+        {"marker_id": "rs13266634", "gene": "SLC30A8", "genotype": "CC (Elevated beta-cell susceptibility)" if patient.diabetes_type == "Type 1" else "CT (Heterozygous)"},
+        {"marker_id": "rs2237892", "gene": "KCNQ1", "genotype": "TT (Reduced insulin secretion allele)" if patient.age > 50 else "CC (Reference allele)"},
+    ]
+    rec_date = datetime(2025, 4, 15, 10, 0, 0)
+    for m in markers:
+        db.add(GeneticMarker(
+            patient_id=patient.id,
+            marker_id=m["marker_id"],
+            gene=m["gene"],
+            genotype=m["genotype"],
+            recorded_at=rec_date,
+            data_source="Simulated Illumina Global Screening Array",
+            is_synthetic=True,
+        ))
+
+
+def seed_patient_sleep_if_missing(db: Session, patient: Patient, start_time: datetime, now: datetime):
+    """Seed synthetic sleep architecture records across the 72-hour historical window if not present."""
+    if db.query(SleepRecord).filter(SleepRecord.patient_id == patient.id).first() is not None:
+        return
+    cur_day = start_time.date()
+    end_day = now.date()
+    import datetime as dt_module
+
+    stages_cycle = ["light", "deep", "light", "rem", "light", "deep", "rem", "light", "awake"]
+    durations_cycle = [45.0, 60.0, 40.0, 50.0, 55.0, 65.0, 60.0, 85.0, 20.0]  # Sums to 480 mins (8h)
+
+    while cur_day <= end_day:
+        bedtime = datetime(cur_day.year, cur_day.month, cur_day.day, 23, 0, 0)
+        t_cursor = bedtime
+        for stage, duration in zip(stages_cycle, durations_cycle):
+            t_end = t_cursor + timedelta(minutes=duration)
+            if t_cursor <= now and t_cursor >= start_time:
+                db.add(SleepRecord(
+                    patient_id=patient.id,
+                    start_time=t_cursor,
+                    end_time=min(t_end, now),
+                    stage=stage,
+                    duration_minutes=duration,
+                    is_synthetic=True,
+                ))
+            t_cursor = t_end
+        cur_day += dt_module.timedelta(days=1)
+
+
+def seed_patient_steps_if_missing(db: Session, patient: Patient, start_time: datetime, now: datetime):
+    """Seed synthetic 15-minute interval steps and daily cumulative totals across 72h window."""
+    if db.query(StepRecord).filter(StepRecord.patient_id == patient.id).first() is not None:
+        return
+    rng = np.random.default_rng(RANDOM_SEED + patient.id * 400)
+    t_cursor = start_time
+    cur_date = None
+    cum_steps = 0
+
+    while t_cursor <= now:
+        if cur_date != t_cursor.date():
+            cur_date = t_cursor.date()
+            cum_steps = 0
+
+        hour = t_cursor.hour
+        if 23 <= hour or hour < 7:
+            step_val = 0
+        elif 7 <= hour < 9:
+            step_val = int(rng.uniform(250, 750))
+        elif 9 <= hour < 17:
+            step_val = int(rng.uniform(60, 280)) if rng.random() > 0.25 else 0
+        elif 17 <= hour < 20:
+            step_val = int(rng.uniform(350, 950))
+        else:
+            step_val = int(rng.uniform(20, 120))
+
+        cum_steps += step_val
+        db.add(StepRecord(
+            patient_id=patient.id,
+            timestamp=t_cursor,
+            interval_steps=step_val,
+            daily_cumulative_steps=cum_steps,
+            is_synthetic=True,
+        ))
+        t_cursor += timedelta(minutes=15)
+
+
 def seed_database(db: Session) -> bool:
     """
-    Populate the database with synthetic patients and 72 hours
-    of readings if the patients table is empty.
-    If patient records already exist, safely refreshes synthetic demo telemetry.
-
-    This function is *idempotent*: calling it again when data
-    already exists does not duplicate records or modify existing data.
+    Populate the database with synthetic patients, 72 hours of readings,
+    historical lab panels, genetic markers, sleep stages, and step counts.
+    If patient records already exist, non-destructively supplements missing streams.
 
     Returns:
         bool: True if initial fresh seeding was performed, False otherwise.
     """
-    # Check if data already exists
-    if db.query(Patient).first() is not None:
-        print("[INFO] Database already seeded -- refreshing synthetic telemetry if needed.")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    start_time = now - timedelta(hours=72)
+
+    # Check if patients already exist
+    existing_patients = db.query(Patient).all()
+    if existing_patients:
+        print("[INFO] Patients exist -- checking and non-destructively supplementing missing EHR/streams.")
         refresh_synthetic_telemetry(db)
+        diagnoses_map = {p["name"]: p.get("historical_diagnoses", "None") for p in SYNTHETIC_PATIENTS}
+        for p in existing_patients:
+            if not getattr(p, "historical_diagnoses", None) or p.historical_diagnoses == "None":
+                p.historical_diagnoses = diagnoses_map.get(p.name, "None")
+            seed_patient_labs_if_missing(db, p, now)
+            seed_patient_genetics_if_missing(db, p)
+            seed_patient_sleep_if_missing(db, p, start_time, now)
+            seed_patient_steps_if_missing(db, p, start_time, now)
+        db.commit()
         return False
 
     print("[SEED] Seeding database with synthetic patient data ...")
     rng = np.random.default_rng(RANDOM_SEED)
-
-    # Time anchor: readings start 72 hours before "now"
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    start_time = now - timedelta(hours=72)
 
     for i, profile in enumerate(SYNTHETIC_PATIENTS):
         # Create patient
@@ -332,8 +473,13 @@ def seed_database(db: Session) -> bool:
                 hrv=round(hrv, 1),
             ))
 
-        print(f"  [+] Patient {patient.id}: {patient.name}  "
-              f"({len(glucose_series)} glucose + {len(vital_series)} vital readings)")
+        # Seed labs, genetics, sleep, and steps
+        seed_patient_labs_if_missing(db, patient, now)
+        seed_patient_genetics_if_missing(db, patient)
+        seed_patient_sleep_if_missing(db, patient, start_time, now)
+        seed_patient_steps_if_missing(db, patient, start_time, now)
+
+        print(f"  [+] Patient {patient.id}: {patient.name} seeded with multimodal EHR & telemetry.")
 
     db.commit()
     print("[DONE] Seeding complete.")

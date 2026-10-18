@@ -137,4 +137,38 @@ export async function runWhatIfSimulation({ patientId, additionalCarbs = 30.0, a
   return handleResponse(response, `what-if simulation for patient #${patientId}`);
 }
 
+export async function fetchPatientLabs(patientId, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/patients/${patientId}/labs`, { signal });
+  return handleResponse(response, `lab results for patient #${patientId}`);
+}
+
+export async function fetchPatientGenetics(patientId, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/patients/${patientId}/genetics`, { signal });
+  return handleResponse(response, `genetic markers for patient #${patientId}`);
+}
+
+export async function fetchSleepReadings(patientId, hours = 24, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/readings/sleep/${patientId}?hours=${hours}`, { signal });
+  return handleResponse(response, `sleep telemetry for patient #${patientId}`);
+}
+
+export async function fetchStepReadings(patientId, hours = 24, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/readings/steps/${patientId}?hours=${hours}`, { signal });
+  return handleResponse(response, `step telemetry for patient #${patientId}`);
+}
+
+export async function simulateSensorFeed(patientId, { glucoseOffset = 0.0, hrOffset = 0.0, stepsDelta = 120 } = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/digital-twin/simulate-feed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      patient_id: patientId,
+      glucose_offset_mg_dl: glucoseOffset,
+      heart_rate_offset: hrOffset,
+      steps_delta: stepsDelta,
+    }),
+  });
+  return handleResponse(response, `simulating sensor feed for patient #${patientId}`);
+}
+
 export { API_BASE_URL };

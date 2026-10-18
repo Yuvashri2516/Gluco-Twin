@@ -35,6 +35,7 @@ export default function AlertsPanel({ selectedPatient, onSelectPatient, onAlerts
   const [patientScope, setPatientScope] = useState('current'); // 'current' | 'all'
 
   // Action states to prevent repeated duplicate clicks
+  const [activeTab, setActiveTab] = useState('surveillance'); // 'surveillance' | 'dispatch'
   const [actionInProgressId, setActionInProgressId] = useState(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const panelId = useId();
@@ -128,7 +129,23 @@ export default function AlertsPanel({ selectedPatient, onSelectPatient, onAlerts
             </p>
           </div>
 
-          <div className="alerts-header-actions">
+          <div className="alerts-header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className="filter-btn-pill" style={{ marginRight: '8px' }}>
+              <button
+                type="button"
+                className={`filter-btn ${activeTab === 'surveillance' ? 'active' : ''}`}
+                onClick={() => setActiveTab('surveillance')}
+              >
+                Surveillance Feed ({alerts.length})
+              </button>
+              <button
+                type="button"
+                className={`filter-btn ${activeTab === 'dispatch' ? 'active' : ''}`}
+                onClick={() => setActiveTab('dispatch')}
+              >
+                Simulated Clinician Pager ({alerts.filter(a => a.severity === 'critical' || a.severity === 'warning').length})
+              </button>
+            </div>
             <button
               type="button"
               className="prediction-action-btn"
@@ -270,7 +287,7 @@ export default function AlertsPanel({ selectedPatient, onSelectPatient, onAlerts
         />
       )}
 
-      {!isLoading && !error && alerts.length > 0 && (
+      {!isLoading && !error && alerts.length > 0 && activeTab === 'surveillance' && (
         <div className="alerts-card-list">
           {alerts.map((alert) => {
             const isObserved = alert.source === 'observed_reading';
@@ -424,6 +441,93 @@ export default function AlertsPanel({ selectedPatient, onSelectPatient, onAlerts
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Simulated Clinician Triage Pager Tab */}
+      {!isLoading && !error && activeTab === 'dispatch' && (
+        <div className="dispatch-inbox-container">
+          <div className="alert-engine-notice" style={{ background: 'rgba(56, 189, 248, 0.08)', borderColor: '#38bdf8' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <div>
+              <strong style={{ color: '#38bdf8', display: 'block' }}>Simulated Clinician Triage Notification Center</strong>
+              <span>
+                Demonstration of clinical escalation routing. In a production hospital system, these critical and warning breaches trigger on-call pagers and staff notification queues.
+                <strong style={{ color: '#e2e8f0', display: 'block', marginTop: '4px' }}>
+                  Notice: External SMS, Push notifications, and SMTP Email delivery are intentionally unconfigured in this demonstration prototype. All items below represent simulated local event dispatches.
+                </strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="dispatch-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+            {alerts
+              .filter((a) => a.severity === 'critical' || a.severity === 'warning')
+              .map((a) => (
+                <div
+                  key={`dispatch-${a.id}`}
+                  style={{
+                    background: '#1e293b',
+                    borderRadius: '8px',
+                    borderLeft: `4px solid ${a.severity === 'critical' ? '#ef4444' : '#f59e0b'}`,
+                    padding: '14px 18px',
+                    border: '1px solid #334155',
+                    borderLeftWidth: '4px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span className={`badge ${a.severity === 'critical' ? 'badge-critical' : 'badge-warning'}`}>
+                        {a.severity.toUpperCase()} ESCALATION
+                      </span>
+                      <span className="badge badge-normal" style={{ fontSize: '11px' }}>
+                        📡 [SIMULATED INTERNAL PAGER]
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                        Recipient: <strong>Endocrinology On-Call / Diabetes Triage Desk</strong>
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>
+                      {formatTimestamp(a.timestamp)}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#f1f5f9', marginBottom: '4px' }}>
+                    {a.patient_name || `Patient #${a.patient_id}`} (ID #{a.patient_id}) — {a.message}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#94a3b8', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #334155' }}>
+                    <div>
+                      <span>Trigger Value: <strong style={{ color: '#f8fafc' }}>{a.trigger_value}</strong></span>
+                      {a.threshold && <span> | Threshold: {a.threshold}</span>}
+                      <span> | Status: <strong style={{ color: a.status === 'active' ? '#ef4444' : '#10b981' }}>{a.status.toUpperCase()}</strong></span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Simulated Local Delivery Confirmed
+                      </span>
+                      {a.status === 'active' && (
+                        <button
+                          type="button"
+                          className="alert-btn btn-ack"
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => handleAcknowledge(a.id)}
+                          disabled={actionInProgressId === a.id}
+                        >
+                          Ack Triage
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
         </div>
       )}
     </div>

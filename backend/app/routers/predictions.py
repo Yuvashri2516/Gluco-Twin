@@ -36,6 +36,7 @@ ML_ARTIFACT_DIR = os.path.join(
 
 
 @router.post("/glucose-spike", response_model=PredictionResponse)
+@router.post("/spike", response_model=PredictionResponse)
 def predict_glucose_spike(
     request: PredictionRequest,
     db: Session = Depends(get_db),

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useId } from 'react';
-import { fetchDigitalTwinDetail } from '../api/client';
+import { fetchDigitalTwinDetail, simulateSensorFeed } from '../api/client';
 import LoadingSpinner from './Common/LoadingSpinner';
 
 function formatTimestamp(timestampStr) {
@@ -22,13 +22,40 @@ export default function DigitalTwinPanel({
   selectedPatient,
   glucoseReadings = [],
   vitalReadings = [],
+  onFeedIngested,
 }) {
   const [twinData, setTwinData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSimulatingFeed, setIsSimulatingFeed] = useState(false);
+  const [feedMessage, setFeedMessage] = useState(null);
   const [error, setError] = useState(null);
   const panelId = useId();
 
   const patientId = selectedPatient?.id;
+
+  const handleSimulateFeed = async () => {
+    if (!patientId || isSimulatingFeed) return;
+    setIsSimulatingFeed(true);
+    setFeedMessage(null);
+    try {
+      const res = await simulateSensorFeed(patientId, {
+        glucoseOffset: 0.0,
+        hrOffset: 0.0,
+        stepsDelta: 120,
+      });
+      setTwinData(res.recalculated_twin);
+      setFeedMessage(
+        `✓ Epoch Ingested (+15m): New reading ${res.new_glucose_reading.value} mg/dL, HR ${res.new_vital_reading.heart_rate} bpm. Digital Twin updated.`
+      );
+      if (onFeedIngested) {
+        onFeedIngested();
+      }
+    } catch (err) {
+      setFeedMessage(`Simulation feed error: ${err.message}`);
+    } finally {
+      setIsSimulatingFeed(false);
+    }
+  };
 
   useEffect(() => {
     if (!patientId) {
@@ -103,7 +130,7 @@ export default function DigitalTwinPanel({
   return (
     <div className="section-container digital-twin-container" id={`twin-panel-${panelId}`}>
       {/* Header Banner */}
-      <div className="section-header-banner">
+      <div className="section-header-banner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <div className="section-title-row">
             <h2 className="section-title">Patient Digital Twin Intelligence</h2>
@@ -114,7 +141,63 @@ export default function DigitalTwinPanel({
             Virtual replica synthesizing demographic phenotype, continuous telemetry vectors, baseline comparisons, and live risk states.
           </p>
         </div>
+
+        {/* Demonstrable Sensor Feed Ingestion Trigger */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+          <button
+            onClick={handleSimulateFeed}
+            disabled={isSimulatingFeed}
+            className="btn btn-primary"
+            style={{
+              padding: '8px 16px',
+              fontSize: '0.84rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: 'var(--primary)',
+              color: '#0f172a',
+              border: 'none',
+              borderRadius: 'var(--radius-sm)',
+              cursor: isSimulatingFeed ? 'not-allowed' : 'pointer',
+              opacity: isSimulatingFeed ? 0.7 : 1,
+              boxShadow: '0 2px 8px rgba(56, 189, 248, 0.25)',
+            }}
+          >
+            {isSimulatingFeed ? (
+              <>
+                <span className="pulse-dot" style={{ width: '8px', height: '8px' }} />
+                <span>Ingesting Telemetry Epoch...</span>
+              </>
+            ) : (
+              <>
+                <span>⚡</span>
+                <span>Simulate Sensor Feed (+15m)</span>
+              </>
+            )}
+          </button>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            Advances patient telemetry safely by one 15m epoch
+          </span>
+        </div>
       </div>
+
+      {feedMessage && (
+        <div
+          style={{
+            padding: '10px 16px',
+            backgroundColor: feedMessage.startsWith('✓') ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+            borderLeft: feedMessage.startsWith('✓') ? '4px solid var(--status-normal)' : '4px solid var(--status-critical)',
+            color: feedMessage.startsWith('✓') ? 'var(--status-normal)' : 'var(--status-critical)',
+            borderRadius: 'var(--radius-sm)',
+            marginBottom: '16px',
+            fontSize: '0.84rem',
+            fontWeight: 500,
+          }}
+        >
+          {feedMessage}
+        </div>
+      )}
 
       {/* Distinction Notice */}
       <div className="telemetry-notice-box">
