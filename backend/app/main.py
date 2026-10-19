@@ -33,21 +33,61 @@ from app.models import (
     GeneticMarker,
     SleepRecord,
     StepRecord,
+    MedicalDocument,
+    User,
 )  # noqa: F401  (imported so Base.metadata knows about them)
 from app.seed import seed_database
 from app.schemas import HealthCheck
-from app.routers import patients, readings, predictions, alerts, twin
+from app.routers import patients, readings, predictions, alerts, twin, documents, auth
 from app.alerts_engine import ensure_alert_columns, evaluate_all_alerts_for_patient
 
 
 def ensure_patient_columns(engine) -> None:
-    """Ensure the SQLite patients table contains historical_diagnoses column non-destructively."""
+    """Ensure the SQLite patients and reading tables contain Phase 1-5 columns non-destructively."""
     with engine.connect() as conn:
         try:
+            # 1. patients table
             res = conn.execute(text("PRAGMA table_info(patients)")).fetchall()
             existing_cols = {row[1] for row in res}
             if "historical_diagnoses" not in existing_cols:
                 conn.execute(text("ALTER TABLE patients ADD COLUMN historical_diagnoses TEXT DEFAULT 'None'"))
+            if "medical_history" not in existing_cols:
+                conn.execute(text("ALTER TABLE patients ADD COLUMN medical_history TEXT DEFAULT ''"))
+
+            # 2. glucose_readings table
+            res_g = conn.execute(text("PRAGMA table_info(glucose_readings)")).fetchall()
+            existing_g = {row[1] for row in res_g}
+            if "unit" not in existing_g:
+                conn.execute(text("ALTER TABLE glucose_readings ADD COLUMN unit VARCHAR(20) DEFAULT 'mg/dL'"))
+            if "data_source" not in existing_g:
+                conn.execute(text("ALTER TABLE glucose_readings ADD COLUMN data_source VARCHAR(50) DEFAULT 'synthetic'"))
+
+            # 3. vital_readings table
+            res_v = conn.execute(text("PRAGMA table_info(vital_readings)")).fetchall()
+            existing_v = {row[1] for row in res_v}
+            if "data_source" not in existing_v:
+                conn.execute(text("ALTER TABLE vital_readings ADD COLUMN data_source VARCHAR(50) DEFAULT 'synthetic'"))
+
+            # 4. lab_results table
+            res_l = conn.execute(text("PRAGMA table_info(lab_results)")).fetchall()
+            existing_l = {row[1] for row in res_l}
+            if "data_source" not in existing_l:
+                conn.execute(text("ALTER TABLE lab_results ADD COLUMN data_source VARCHAR(50) DEFAULT 'synthetic'"))
+            if "lab_source" not in existing_l:
+                conn.execute(text("ALTER TABLE lab_results ADD COLUMN lab_source VARCHAR(120) DEFAULT 'Simulated Diagnostic Laboratory'"))
+
+            conn.commit()
+        except Exception:
+            pass
+
+
+def ensure_user_table(engine) -> None:
+    """Ensure the SQLite users table is present non-destructively."""
+    with engine.connect() as conn:
+        try:
+            res = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+            if not res:
+                User.__table__.create(bind=conn, checkfirst=True)
                 conn.commit()
         except Exception:
             pass
@@ -71,18 +111,23 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_alert_columns(engine)
     ensure_patient_columns(engine)
+    ensure_user_table(engine)
     print("[OK] Database tables created / verified.")
 
-    # Seed synthetic data (idempotent -- safe to call every restart)
-    db = SessionLocal()
-    try:
-        was_freshly_seeded = seed_database(db)
-        # Pre-evaluate alerts only on fresh database creation to prevent alert flood on restart
-        if was_freshly_seeded:
-            for p in db.query(Patient).all():
-                evaluate_all_alerts_for_patient(db, p)
-    finally:
-        db.close()
+    # Seed synthetic data (in development only; disabled in production)
+    env = os.environ.get("ENVIRONMENT", "development").strip().lower()
+    if env not in ("production", "prod"):
+        db = SessionLocal()
+        try:
+            was_freshly_seeded = seed_database(db)
+            # Pre-evaluate alerts only on fresh database creation to prevent alert flood on restart
+            if was_freshly_seeded:
+                for p in db.query(Patient).all():
+                    evaluate_all_alerts_for_patient(db, p)
+        finally:
+            db.close()
+    else:
+        print("[INFO] Production mode: Automatic synthetic patient and demo user seeding is disabled.")
 
     yield  # Application runs here
 
@@ -140,6 +185,9 @@ app.include_router(readings.router)
 app.include_router(predictions.router)
 app.include_router(alerts.router)
 app.include_router(twin.router)
+app.include_router(documents.router)
+app.include_router(auth.router)
+
 
 
 # ---------------------------------------------------------------------------

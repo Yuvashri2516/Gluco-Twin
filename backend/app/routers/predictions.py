@@ -15,7 +15,8 @@ import numpy as np
 import pandas as pd
 
 from app.database import get_db
-from app.models import Patient, GlucoseReading, VitalReading
+from app.models import Patient, GlucoseReading, VitalReading, User
+from app.auth import get_current_user, check_patient_authorization
 from app.schemas import PredictionRequest, PredictionResponse
 from app.ml.pipeline import (
     load_model_artifact,
@@ -39,12 +40,14 @@ ML_ARTIFACT_DIR = os.path.join(
 @router.post("/spike", response_model=PredictionResponse)
 def predict_glucose_spike(
     request: PredictionRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Predict whether a patient's glucose level will cross the 180.0 mg/dL threshold
     within the next 2 hours based on recent telemetry and clinical profile.
     """
+    check_patient_authorization(request.patient_id, current_user)
     # 1. Load model artifact
     pipeline, metadata = load_model_artifact(ML_ARTIFACT_DIR)
     if pipeline is None or metadata is None:

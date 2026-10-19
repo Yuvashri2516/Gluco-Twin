@@ -23,6 +23,10 @@ venv/
 *.db.backup*
 *.db.backup_*
 
+# Uploaded medical documents
+backend/uploads/
+uploads/
+
 # IDE and OS
 .vscode/
 .idea/

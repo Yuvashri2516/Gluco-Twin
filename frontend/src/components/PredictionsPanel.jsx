@@ -99,8 +99,8 @@ export default function PredictionsPanel({ selectedPatient }) {
             userHelper = 'The prediction model artifact is not loaded on the backend. Ensure the ML pipeline has been executed (python -m app.ml.train).';
           } else if (Number(status) === 422) {
             errorType = 'INSUFFICIENT_DATA';
-            userTitle = 'Insufficient Telemetry Readings (422)';
-            userHelper = 'The patient does not have sufficient recent continuous glucose readings to compute required model features.';
+            userTitle = 'Insufficient Patient History / Not Validated for this Patient';
+            userHelper = 'The predictive model requires at least 1 hour of continuous sensor telemetry to calculate glycemic rate-of-change, variance, and circadian features. This newly registered or empty patient profile does not yet have enough readings. Please add manual readings or upload a CGM sensor export in the Medical Documents tab to activate predictions.';
           } else if (Number(status) === 404) {
             errorType = 'PATIENT_NOT_FOUND';
             userTitle = 'Patient Record Not Found (404)';

@@ -30,6 +30,23 @@ import os
 # ---------------------------------------------------------------------------
 DATABASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_DB_PATH = os.path.join(DATABASE_DIR, "glucotwin.db")
+
+
+class DatabaseConfigurationError(RuntimeError):
+    """Raised when database persistence configuration is missing in production."""
+    pass
+
+
+env = os.environ.get("ENVIRONMENT", "development").strip().lower()
+if env in ("production", "prod"):
+    if "DATABASE_URL" not in os.environ:
+        raise DatabaseConfigurationError(
+            "CRITICAL DEPLOYMENT SAFETY ERROR: Running in production mode (ENVIRONMENT=production), "
+            "but DATABASE_URL is not set. Ephemeral container disk storage will lose all patient records "
+            "on container restart or redeploy. Please configure a managed database URL (e.g., PostgreSQL) "
+            "or an explicit persistent volume mount path via DATABASE_URL (e.g., sqlite:////var/data/glucotwin.db)."
+        )
+
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}

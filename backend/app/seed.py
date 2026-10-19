@@ -18,6 +18,7 @@ This approach produces data that *looks* physiologically plausible
 in charts without claiming clinical accuracy.
 """
 
+import os
 import random
 import math
 from datetime import datetime, timedelta, timezone
@@ -33,7 +34,9 @@ from app.models import (
     GeneticMarker,
     SleepRecord,
     StepRecord,
+    User,
 )
+from app.auth import get_password_hash
 
 # ---------------------------------------------------------------------------
 # Reproducibility: fix the random seed so the demo always generates
@@ -437,6 +440,7 @@ def seed_database(db: Session) -> bool:
             seed_patient_genetics_if_missing(db, p)
             seed_patient_sleep_if_missing(db, p, start_time, now)
             seed_patient_steps_if_missing(db, p, start_time, now)
+        seed_users_if_missing(db)
         db.commit()
         return False
 
@@ -481,6 +485,68 @@ def seed_database(db: Session) -> bool:
 
         print(f"  [+] Patient {patient.id}: {patient.name} seeded with multimodal EHR & telemetry.")
 
+    seed_users_if_missing(db)
     db.commit()
     print("[DONE] Seeding complete.")
     return True
+
+
+def seed_users_if_missing(db: Session) -> None:
+    """
+    Seed initial demonstrator user accounts with securely hashed passwords.
+    Only executed in development environments. NEVER in production.
+    Accounts:
+      - 'dr_sharma' (clinician)
+      - 'rajesh_kumar' (patient #2)
+      - 'ananya_sharma' (patient #1)
+    """
+    env = os.environ.get("ENVIRONMENT", "development").strip().lower()
+    if env in ("production", "prod"):
+        print("[INFO] Production environment: demonstrator user account seeding is disabled.")
+        return
+    demo_users = [
+        {
+            "username": "dr_sharma",
+            "email": "dr.sharma@glucotwin.hospital",
+            "role": "clinician",
+            "patient_id": None,
+            "password": "Clinician123!",
+        },
+        {
+            "username": "rajesh_kumar",
+            "email": "rajesh.kumar@example.com",
+            "role": "patient",
+            "patient_id": 2,
+            "password": "Patient123!",
+        },
+        {
+            "username": "ananya_sharma",
+            "email": "ananya.sharma@example.com",
+            "role": "patient",
+            "patient_id": 1,
+            "password": "Patient123!",
+        },
+    ]
+
+    for u_spec in demo_users:
+        existing = db.query(User).filter(User.username == u_spec["username"]).first()
+        if not existing:
+            # Check if patient exists if patient_id is specified
+            p_id = u_spec["patient_id"]
+            if p_id is not None:
+                p_exists = db.query(Patient).filter(Patient.id == p_id).first()
+                if not p_exists:
+                    p_id = None
+
+            hashed_pw = get_password_hash(u_spec["password"])
+            user = User(
+                username=u_spec["username"],
+                email=u_spec["email"],
+                hashed_password=hashed_pw,
+                role=u_spec["role"],
+                patient_id=p_id,
+                is_active=True,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(user)
+            print(f"  [+] Seeded demonstrator user: '{u_spec['username']}' (role: {u_spec['role']})")

@@ -3,7 +3,7 @@ import React from 'react';
 const NAV_ITEMS = [
   {
     id: 'overview',
-    label: 'Overview',
+    label: 'Patient Overview',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   },
   {
     id: 'ehr',
-    label: 'EHR & Lab History',
+    label: 'Patient History & EHR',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -27,8 +27,51 @@ const NAV_ITEMS = [
     ),
   },
   {
+    id: 'add_reading',
+    label: 'Add Reading (Manual)',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="16" />
+        <line x1="8" y1="12" x2="16" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    id: 'documents',
+    label: 'Medical Documents',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+    ),
+  },
+  {
+    id: 'review_extraction',
+    label: 'Review Extracted Data',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+    ),
+  },
+  {
+    id: 'twin',
+    label: 'Digital Twin Context',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
+        <path d="M16 11a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0v-1a4 4 0 0 1 4-4z" />
+        <circle cx="12" cy="12" r="10" />
+      </svg>
+    ),
+  },
+  {
     id: 'glucose',
-    label: 'Glucose Telemetry',
+    label: 'Continuous Glucose',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -50,17 +93,6 @@ const NAV_ITEMS = [
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'twin',
-    label: 'Digital Twin',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
-        <path d="M16 11a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0v-1a4 4 0 0 1 4-4z" />
-        <circle cx="12" cy="12" r="10" />
       </svg>
     ),
   },
@@ -96,7 +128,15 @@ const NAV_ITEMS = [
   },
 ];
 
-export default function Sidebar({ activeTab, onSelectTab, isMobileOpen, onCloseMobile, unreadAlertsCount = 0, backendOnline = false }) {
+export default function Sidebar({
+  activeTab,
+  onSelectTab,
+  isMobileOpen,
+  onCloseMobile,
+  unreadAlertsCount = 0,
+  backendOnline = false,
+  onOpenAddPatient,
+}) {
   return (
     <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-brand">
@@ -108,13 +148,26 @@ export default function Sidebar({ activeTab, onSelectTab, isMobileOpen, onCloseM
         </div>
         <div>
           <h1 className="brand-title">GlucoTwin</h1>
-          <span className="brand-subtitle">Digital Twin Clinical AI</span>
+          <span className="brand-subtitle">Clinical Digital Twin</span>
         </div>
         {isMobileOpen && (
           <button className="close-mobile-btn" onClick={onCloseMobile}>
             &times;
           </button>
         )}
+      </div>
+
+      <div style={{ padding: '0 16px 12px' }}>
+        <button
+          className="btn btn-primary"
+          style={{ width: '100%', fontSize: '0.84rem', padding: '8px 12px', justifyContent: 'center' }}
+          onClick={() => {
+            if (onOpenAddPatient) onOpenAddPatient();
+            if (onCloseMobile) onCloseMobile();
+          }}
+        >
+          + Register Patient
+        </button>
       </div>
 
       <nav className="sidebar-nav">

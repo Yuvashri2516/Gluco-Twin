@@ -12,6 +12,10 @@ export default function Topbar({
   onOpenMobileSidebar,
   notifications = [],
   onNavigateTab,
+  onOpenAddPatient,
+  onOpenEditPatient,
+  currentUser,
+  onLogout,
 }) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -88,6 +92,27 @@ export default function Topbar({
             </span>
           </div>
         )}
+
+        {/* Patient Action Buttons */}
+        <div className="patient-action-btns-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '6px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenEditPatient}
+            disabled={!selectedPatient}
+            title="Edit Active Patient Demographics"
+          >
+            Edit Profile
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={onOpenAddPatient}
+            title="Register New Patient Context"
+          >
+            + Add Patient
+          </button>
+        </div>
       </div>
 
       <div className="topbar-right">
@@ -173,6 +198,37 @@ export default function Topbar({
                 </span>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Authenticated User Session Badge & Logout */}
+        <div className="auth-user-badge" title={`Logged in as ${currentUser?.username || 'User'} (${currentUser?.role || 'authenticated'})`}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span className="auth-username">
+            {currentUser?.role === 'clinician'
+              ? (currentUser.username.startsWith('dr_') ? `Dr. ${currentUser.username.slice(3).replace('_', ' ')}` : currentUser.username)
+              : (currentUser?.username || 'User')}
+          </span>
+          <span className={`auth-role-tag ${currentUser?.role || 'clinician'}`}>
+            {currentUser?.role === 'clinician' ? 'Clinician' : 'Patient'}
+          </span>
+          {onLogout && (
+            <button
+              type="button"
+              className="auth-logout-btn"
+              onClick={onLogout}
+              title="Sign Out of Session"
+              aria-label="Sign Out"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
           )}
         </div>
 

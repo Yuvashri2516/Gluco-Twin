@@ -5,17 +5,20 @@ routers/readings.py - Glucose & vital-sign reading endpoints
 Provides time-series data for the frontend charts:
   GET  /api/readings/glucose/{patient_id}  -> glucose history
   GET  /api/readings/vitals/{patient_id}   -> HR + HRV history
+  GET  /api/readings/sleep/{patient_id}    -> sleep architecture
+  GET  /api/readings/steps/{patient_id}    -> step count telemetry
+  POST /api/readings/glucose               -> manual glucose entry
+  POST /api/readings/vitals                -> manual vitals entry
 
-Both endpoints accept an optional `hours` query parameter to
-limit how far back to look (defaults to 24 hours).
+All endpoints enforce server-side authentication and authorization.
 """
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 
 from app.database import get_db
-from app.models import GlucoseReading, VitalReading, Patient, SleepRecord, StepRecord
+from app.models import GlucoseReading, VitalReading, Patient, SleepRecord, StepRecord, User
 from app.schemas import (
     GlucoseReadingRead,
     VitalReadingRead,
@@ -23,7 +26,11 @@ from app.schemas import (
     SleepSummaryResponse,
     StepRecordRead,
     StepSummaryResponse,
+    ManualGlucoseCreate,
+    ManualVitalCreate,
 )
+from app.alerts_engine import evaluate_all_alerts_for_patient
+from app.auth import get_current_user, check_patient_authorization
 
 router = APIRouter(prefix="/api/readings", tags=["Readings"])
 
@@ -32,14 +39,15 @@ router = APIRouter(prefix="/api/readings", tags=["Readings"])
 def get_glucose_readings(
     patient_id: int,
     hours: int = Query(default=24, ge=1, le=168, description="Hours of history to return"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Return glucose readings for a patient within the last `hours` hours.
-
-    The readings are sorted chronologically so the frontend can
-    plot them directly on a time-series chart.
+    Enforces server-side patient isolation check.
     """
+    check_patient_authorization(patient_id, current_user)
+
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient #{patient_id} not found.")
@@ -61,9 +69,12 @@ def get_glucose_readings(
 def get_vital_readings(
     patient_id: int,
     hours: int = Query(default=24, ge=1, le=168, description="Hours of history to return"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return heart-rate and HRV readings for a patient."""
+    """Return heart-rate and HRV readings for a patient. Enforces patient isolation check."""
+    check_patient_authorization(patient_id, current_user)
+
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient #{patient_id} not found.")
@@ -85,11 +96,12 @@ def get_vital_readings(
 def get_sleep_readings(
     patient_id: int,
     hours: int = Query(default=24, ge=1, le=168, description="Hours of history to return"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Return synthetic sleep architecture stages and aggregate metrics for a patient.
-    """
+    """Return synthetic sleep architecture stages and aggregate metrics for a patient."""
+    check_patient_authorization(patient_id, current_user)
+
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient #{patient_id} not found.")
@@ -138,12 +150,15 @@ def get_sleep_readings(
 def get_step_readings(
     patient_id: int,
     hours: int = Query(default=24, ge=1, le=168, description="Hours of history to return"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Return physical activity step counts distinguishing 15-minute interval steps
     from daily cumulative step totals.
     """
+    check_patient_authorization(patient_id, current_user)
+
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient #{patient_id} not found.")
@@ -182,3 +197,128 @@ def get_step_readings(
         records=records,
         is_synthetic_data=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# Manual Telemetry Ingestion (Phase 2 & Phase A Auth)
+# ---------------------------------------------------------------------------
+@router.post("/glucose", response_model=GlucoseReadingRead, status_code=status.HTTP_201_CREATED)
+def create_glucose_reading(
+    payload: ManualGlucoseCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Manually record a glucose measurement for a patient.
+    Requires caller authorization for payload.patient_id.
+    Supports units 'mg/dL' and 'mmol/L' (with automatic conversion to standard mg/dL).
+    Validates range and evaluates clinical alerts for the patient.
+    """
+    check_patient_authorization(payload.patient_id, current_user)
+
+    patient = db.query(Patient).filter(Patient.id == payload.patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient #{payload.patient_id} not found.")
+
+    unit_clean = payload.unit.strip().lower()
+    if unit_clean in ["mmol/l", "mmol"]:
+        val_mgdl = round(payload.value * 18.0182, 1)
+        stored_unit = "mmol/L"
+    elif unit_clean in ["mg/dl", "mgdl"]:
+        val_mgdl = round(payload.value, 1)
+        stored_unit = "mg/dL"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported glucose unit '{payload.unit}'. Supported units: 'mg/dL' or 'mmol/L'."
+        )
+
+    if val_mgdl < 20.0 or val_mgdl > 800.0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Glucose value {val_mgdl} mg/dL is outside physiological bounds (20 - 800 mg/dL)."
+        )
+
+    now_utc = datetime.now(timezone.utc)
+    ts = payload.timestamp or now_utc
+    if ts.tzinfo is not None:
+        ts = ts.replace(tzinfo=None)
+
+    # Check future timestamps (allow 5-min margin for clock drift)
+    if ts > (now_utc.replace(tzinfo=None) + timedelta(minutes=5)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Measurement timestamp cannot be in the future."
+        )
+
+    reading = GlucoseReading(
+        patient_id=patient.id,
+        timestamp=ts,
+        value=val_mgdl,
+        unit=stored_unit,
+        is_valid=True,
+        data_source=payload.data_source or "manual",
+    )
+    db.add(reading)
+    db.commit()
+    db.refresh(reading)
+
+    # Evaluate alerts dynamically
+    try:
+        evaluate_all_alerts_for_patient(db, patient)
+    except Exception:
+        pass
+
+    return reading
+
+
+@router.post("/vitals", response_model=VitalReadingRead, status_code=status.HTTP_201_CREATED)
+def create_vital_reading(
+    payload: ManualVitalCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Manually record autonomic vitals (heart rate and/or HRV) for a patient.
+    Requires caller authorization for payload.patient_id.
+    """
+    check_patient_authorization(payload.patient_id, current_user)
+
+    patient = db.query(Patient).filter(Patient.id == payload.patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient #{payload.patient_id} not found.")
+
+    if payload.heart_rate is None and payload.hrv is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="At least one vital measurement (heart_rate or hrv) must be provided."
+        )
+
+    now_utc = datetime.now(timezone.utc)
+    ts = payload.timestamp or now_utc
+    if ts.tzinfo is not None:
+        ts = ts.replace(tzinfo=None)
+
+    if ts > (now_utc.replace(tzinfo=None) + timedelta(minutes=5)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Measurement timestamp cannot be in the future."
+        )
+
+    reading = VitalReading(
+        patient_id=patient.id,
+        timestamp=ts,
+        heart_rate=round(payload.heart_rate, 1) if payload.heart_rate is not None else None,
+        hrv=round(payload.hrv, 1) if payload.hrv is not None else None,
+        data_source=payload.data_source or "manual",
+    )
+    db.add(reading)
+    db.commit()
+    db.refresh(reading)
+
+    try:
+        evaluate_all_alerts_for_patient(db, patient)
+    except Exception:
+        pass
+
+    return reading

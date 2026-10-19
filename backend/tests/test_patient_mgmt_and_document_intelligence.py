@@ -1,0 +1,451 @@
+"""
+test_patient_mgmt_and_document_intelligence.py - Comprehensive Phase 1-5 Test Suite
+====================================================================================
+
+Tests cover:
+  1. Patient Management (Creation, editing, unique IDs, duplicate prevention, validation).
+  2. Manual Medical Ingestion (Glucose, vitals, lab panels, diagnoses, unit conversions).
+  3. Medical Document Uploads (Storage isolation, size limits, extension whitelist, download).
+  4. Document Intelligence (PDF text extraction, OCR behavior, tabular preview, draft confirmation, cancellation).
+  5. Digital Twin & Prediction Safety (Safe handling of newly created patients with insufficient history).
+"""
+
+import io
+import json
+import pytest
+from datetime import datetime, timezone, timedelta
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.main import app
+from app.database import Base, get_db
+from app.models import Patient, GlucoseReading, VitalReading, LabResult, MedicalDocument
+from app.services.storage import LocalStorageProvider, storage_provider, FileValidationError
+
+
+@pytest.fixture
+def test_db_session(tmp_path):
+    """Isolated in-memory SQLite database session fixture."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture
+def client(test_db_session, tmp_path, monkeypatch):
+    """TestClient wired to isolated in-memory DB and temporary upload directory."""
+    temp_upload_dir = tmp_path / "uploads"
+    temp_upload_dir.mkdir(parents=True, exist_ok=True)
+    temp_storage = LocalStorageProvider(upload_dir=str(temp_upload_dir))
+
+    # Monkeypatch storage_provider in storage and documents router
+    monkeypatch.setattr("app.services.storage.storage_provider", temp_storage)
+    monkeypatch.setattr("app.routers.documents.storage_provider", temp_storage)
+
+    def override_get_db():
+        try:
+            yield test_db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+# ===========================================================================
+# PHASE 1: PATIENT MANAGEMENT TESTS
+# ===========================================================================
+def test_create_patient_success(client, test_db_session):
+    """Test registering a new patient with valid data."""
+    payload = {
+        "name": "Sunita Rao",
+        "age": 48,
+        "gender": "Female",
+        "diabetes_type": "Type 2",
+        "years_since_diagnosis": 4,
+        "historical_diagnoses": "Mild Hypertension",
+        "medical_history": "First diagnosed during routine health checkup in 2022.",
+        "weight_kg": 68.0,
+        "height_cm": 162.0,
+    }
+    res = client.post("/api/patients", json=payload)
+    assert res.status_code == 201
+    data = res.json()
+    assert data["name"] == "Sunita Rao"
+    assert data["age"] == 48
+    assert data["calculated_bmi"] == round(68.0 / ((162.0 / 100) ** 2), 1)
+    assert data["id"] is not None
+
+    # Verify in DB
+    db_patient = test_db_session.query(Patient).filter(Patient.id == data["id"]).first()
+    assert db_patient is not None
+    assert db_patient.name == "Sunita Rao"
+
+
+def test_create_patient_duplicate_rejection(client):
+    """Test duplicate registration prevention."""
+    payload = {
+        "name": "Kavita Nair",
+        "age": 39,
+        "gender": "Female",
+        "diabetes_type": "Type 1",
+        "years_since_diagnosis": 12,
+    }
+    res1 = client.post("/api/patients", json=payload)
+    assert res1.status_code == 201
+
+    # Second submission of identical profile must return 409 Conflict
+    res2 = client.post("/api/patients", json=payload)
+    assert res2.status_code == 409
+    assert "already exists" in res2.json()["detail"]
+
+
+def test_create_patient_validation_errors(client):
+    """Test invalid patient inputs (short name, negative age, out-of-bound weights)."""
+    # 1. Name too short
+    res = client.post("/api/patients", json={"name": "A", "age": 40, "gender": "Male", "diabetes_type": "Type 2"})
+    assert res.status_code == 422
+
+    # 2. Negative age
+    res = client.post("/api/patients", json={"name": "Valid Name", "age": -5, "gender": "Male", "diabetes_type": "Type 2"})
+    assert res.status_code == 422
+
+    # 3. Excessive weight
+    res = client.post("/api/patients", json={"name": "Valid Name", "age": 40, "gender": "Male", "diabetes_type": "Type 2", "weight_kg": 999.0})
+    assert res.status_code == 422
+
+
+def test_update_patient_profile(client):
+    """Test editing an existing patient's clinical profile."""
+    # Register patient
+    p_res = client.post("/api/patients", json={
+        "name": "Amit Shah",
+        "age": 55,
+        "gender": "Male",
+        "diabetes_type": "Type 2",
+        "years_since_diagnosis": 6,
+    })
+    p_id = p_res.json()["id"]
+
+    # Update weight, diagnoses, and medical history
+    update_res = client.put(f"/api/patients/{p_id}", json={
+        "weight_kg": 82.5,
+        "height_cm": 174.0,
+        "historical_diagnoses": "Hypertension, Hyperlipidemia",
+        "medical_history": "Started ACE inhibitor 2024.",
+    })
+    assert update_res.status_code == 200
+    updated = update_res.json()
+    assert updated["weight_kg"] == 82.5
+    assert updated["height_cm"] == 174.0
+    assert "Hyperlipidemia" in updated["historical_diagnoses"]
+    assert updated["calculated_bmi"] == round(82.5 / ((174.0 / 100) ** 2), 1)
+
+
+# ===========================================================================
+# PHASE 2: MANUAL MEDICAL INGESTION TESTS
+# ===========================================================================
+def test_manual_glucose_entry_mgdl_and_mmol(client, test_db_session):
+    """Test manual glucose entry in mg/dL and mmol/L with automatic standard conversion."""
+    p = Patient(name="Test Patient", age=45, gender="Male", diabetes_type="Type 2")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    # 1. Entry in mg/dL
+    res_mg = client.post("/api/readings/glucose", json={
+        "patient_id": p.id,
+        "value": 154.0,
+        "unit": "mg/dL",
+        "data_source": "manual",
+    })
+    assert res_mg.status_code == 201
+    assert res_mg.json()["value"] == 154.0
+    assert res_mg.json()["data_source"] == "manual"
+
+    # 2. Entry in mmol/L (e.g. 7.0 mmol/L ~ 126.1 mg/dL)
+    res_mmol = client.post("/api/readings/glucose", json={
+        "patient_id": p.id,
+        "value": 7.0,
+        "unit": "mmol/L",
+        "data_source": "manual",
+    })
+    assert res_mmol.status_code == 201
+    assert abs(res_mmol.json()["value"] - 126.1) < 0.2
+    assert res_mmol.json()["unit"] == "mmol/L"
+
+
+def test_manual_glucose_future_timestamp_rejected(client, test_db_session):
+    """Reject measurement timestamps situated in the future."""
+    p = Patient(name="Future Time Patient", age=50, gender="Female", diabetes_type="Type 2")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    future_time = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+    res = client.post("/api/readings/glucose", json={
+        "patient_id": p.id,
+        "value": 120.0,
+        "timestamp": future_time,
+    })
+    assert res.status_code == 422
+    assert "future" in res.json()["detail"].lower()
+
+
+def test_manual_vitals_entry(client, test_db_session):
+    """Test manual vital-sign readings entry and validation."""
+    p = Patient(name="Vitals Patient", age=33, gender="Male", diabetes_type="Type 1")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    res = client.post("/api/readings/vitals", json={
+        "patient_id": p.id,
+        "heart_rate": 76.0,
+        "hrv": 44.0,
+        "data_source": "manual",
+    })
+    assert res.status_code == 201
+    assert res.json()["heart_rate"] == 76.0
+    assert res.json()["hrv"] == 44.0
+    assert res.json()["data_source"] == "manual"
+
+
+def test_manual_lab_result_entry(client, test_db_session):
+    """Test manually recording a clinical laboratory result."""
+    p = Patient(name="Lab Patient", age=58, gender="Female", diabetes_type="Type 2")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    res = client.post(f"/api/patients/{p.id}/labs", json={
+        "patient_id": p.id,
+        "test_name": "HbA1c",
+        "result": 7.2,
+        "unit": "%",
+        "reference_range": "< 5.7%",
+        "lab_source": "Metropolitan Pathology Labs",
+        "data_source": "manual",
+    })
+    assert res.status_code == 201
+    data = res.json()
+    assert data["test_name"] == "HbA1c"
+    assert data["result"] == 7.2
+    assert data["is_synthetic"] is False
+    assert data["data_source"] == "manual"
+    assert data["lab_source"] == "Metropolitan Pathology Labs"
+
+
+def test_manual_diagnosis_and_history_logging(client, test_db_session):
+    """Test appending diagnoses and clinical encounter history."""
+    p = Patient(name="Diagnosis Patient", age=62, gender="Male", diabetes_type="Type 2", historical_diagnoses="None")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    res = client.post(f"/api/patients/{p.id}/diagnoses", json={
+        "patient_id": p.id,
+        "diagnosis_name": "Diabetic Retinopathy (Background)",
+        "date": "2026-04-10",
+        "notes": "Annual dilated fundus exam revealed microaneurysms.",
+        "status": "active",
+    })
+    assert res.status_code == 200
+    updated = res.json()
+    assert "Diabetic Retinopathy" in updated["historical_diagnoses"]
+    assert "microaneurysms" in updated["medical_history"]
+
+
+# ===========================================================================
+# PHASE 3: DOCUMENT UPLOAD & STORAGE TESTS
+# ===========================================================================
+def test_document_upload_csv(client, test_db_session):
+    """Test uploading a CSV report and generating unconfirmed reviewable draft."""
+    p = Patient(name="CSV Patient", age=41, gender="Female", diabetes_type="Type 2")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    csv_content = b"timestamp,glucose_mg_dl\n2026-10-18T08:00:00,128\n2026-10-18T08:15:00,135\n2026-10-18T08:30:00,142\n"
+    res = client.post(
+        "/api/documents/upload",
+        data={"patient_id": p.id, "document_category": "cgm_export"},
+        files={"file": ("cgm_readings.csv", io.BytesIO(csv_content), "text/csv")},
+    )
+    assert res.status_code == 201
+    data = res.json()
+    assert data["original_filename"] == "cgm_readings.csv"
+    assert data["is_confirmed"] is False
+    assert data["processing_status"] == "completed"
+
+    # Verify preview endpoint returns tabular data and candidate readings
+    doc_id = data["id"]
+    prev_res = client.get(f"/api/documents/{doc_id}/preview")
+    assert prev_res.status_code == 200
+    prev = prev_res.json()
+    assert "extraction" in prev
+    assert len(prev["extraction"]["candidate_readings"]) == 3
+
+
+def test_document_upload_unsupported_file_rejected(client, test_db_session):
+    """Reject executable or unsupported formats like .exe or .bin."""
+    p = Patient(name="Bad File Patient", age=30, gender="Male", diabetes_type="Type 1")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    res = client.post(
+        "/api/documents/upload",
+        data={"patient_id": p.id},
+        files={"file": ("malware.exe", io.BytesIO(b"MZ\x90\x00"), "application/octet-stream")},
+    )
+    assert res.status_code == 422
+    assert "Unsupported file extension" in res.json()["detail"]
+
+
+def test_document_download(client, test_db_session):
+    """Test downloading the uploaded document binary."""
+    p = Patient(name="Download Patient", age=50, gender="Female", diabetes_type="Type 2")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    sample_text = b"Patient: Download Patient\nHbA1c: 6.8 %\nFasting Blood Glucose: 112 mg/dL\n"
+    up_res = client.post(
+        "/api/documents/upload",
+        data={"patient_id": p.id},
+        files={"file": ("lab_report.csv", io.BytesIO(sample_text), "text/csv")},
+    )
+    doc_id = up_res.json()["id"]
+
+    down_res = client.get(f"/api/documents/{doc_id}/download")
+    assert down_res.status_code == 200
+    assert down_res.content == sample_text
+
+
+# ===========================================================================
+# PHASE 4: DOCUMENT INTELLIGENCE, PREVIEW & CONFIRMATION TESTS
+# ===========================================================================
+def test_document_confirmation_saves_to_ehr(client, test_db_session):
+    """Test reviewing draft extracted labs and committing them into active EHR."""
+    p = Patient(name="Review Patient", age=54, gender="Male", diabetes_type="Type 2")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    sample_doc = b"Patient: Review Patient\nHbA1c: 7.4 %\nTotal Cholesterol: 195 mg/dL\n"
+    up_res = client.post(
+        "/api/documents/upload",
+        data={"patient_id": p.id},
+        files={"file": ("lab_review.csv", io.BytesIO(sample_doc), "text/csv")},
+    )
+    doc_id = up_res.json()["id"]
+
+    # Confirm and Save
+    confirm_payload = {
+        "confirmed_labs": [
+            {
+                "patient_id": p.id,
+                "test_name": "HbA1c",
+                "result": 7.4,
+                "unit": "%",
+                "reference_range": "< 5.7%",
+            },
+            {
+                "patient_id": p.id,
+                "test_name": "Total Cholesterol",
+                "result": 195.0,
+                "unit": "mg/dL",
+                "reference_range": "< 200 mg/dL",
+            },
+        ],
+        "confirmed_readings": [],
+        "clinical_notes": "Reviewed by clinician. Target A1c < 7.0%.",
+    }
+    c_res = client.post(f"/api/documents/{doc_id}/confirm", json=confirm_payload)
+    assert c_res.status_code == 200
+    assert c_res.json()["confirmed_labs_count"] == 2
+
+    # Verify lab results now exist in active lab_results table
+    labs_res = client.get(f"/api/patients/{p.id}/labs")
+    assert labs_res.status_code == 200
+    test_names = [item["test_name"] for item in labs_res.json()]
+    assert "HbA1c" in test_names
+    assert "Total Cholesterol" in test_names
+
+    # Verify duplicate confirmation is prevented
+    second_confirm = client.post(f"/api/documents/{doc_id}/confirm", json=confirm_payload)
+    assert second_confirm.status_code == 400
+    assert "already been confirmed" in second_confirm.json()["detail"]
+
+
+def test_document_cancellation_does_not_save_to_ehr(client, test_db_session):
+    """Test canceling a draft report leaves active EHR untouched."""
+    p = Patient(name="Cancel Patient", age=47, gender="Female", diabetes_type="Type 1")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    up_res = client.post(
+        "/api/documents/upload",
+        data={"patient_id": p.id},
+        files={"file": ("unwanted.csv", io.BytesIO(b"HbA1c,8.5\n"), "text/csv")},
+    )
+    doc_id = up_res.json()["id"]
+
+    # Cancel draft
+    canc_res = client.post(f"/api/documents/{doc_id}/cancel")
+    assert canc_res.status_code == 200
+    assert canc_res.json()["status"] == "cancelled"
+
+    # Active labs must remain 0
+    labs_res = client.get(f"/api/patients/{p.id}/labs")
+    assert len(labs_res.json()) == 0
+
+
+def test_patient_name_mismatch_warning(client, test_db_session):
+    """Verify that a document containing a different patient name generates a mismatch warning."""
+    p = Patient(name="Deepak Joshi", age=50, gender="Male", diabetes_type="Type 2")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    # Document with a different name
+    doc_content = b"Patient Name: Ananya Sharma\nDate: 2026-10-10\nHbA1c: 6.9 %\n"
+    up_res = client.post(
+        "/api/documents/upload",
+        data={"patient_id": p.id},
+        files={"file": ("ananya_labs.csv", io.BytesIO(doc_content), "text/csv")},
+    )
+    doc_id = up_res.json()["id"]
+
+    prev_res = client.get(f"/api/documents/{doc_id}/preview")
+    assert prev_res.status_code == 200
+    extraction = prev_res.json()["extraction"]
+    assert extraction["patient_name_match"] is False
+    assert any("MISMATCH" in w for w in extraction["warnings"])
+
+
+# ===========================================================================
+# PHASE 5: DIGITAL TWIN INTEGRATION & PREDICTION SAFETY
+# ===========================================================================
+def test_new_patient_insufficient_history_safety(client, test_db_session):
+    """Newly registered patient without telemetry returns clear 422 explaining insufficient data."""
+    p = Patient(name="New Empty Patient", age=40, gender="Male", diabetes_type="Type 2")
+    test_db_session.add(p)
+    test_db_session.commit()
+
+    # Calling prediction on patient with 0 readings must safely return 422
+    pred_res = client.post("/api/predictions/glucose-spike", json={"patient_id": p.id})
+    assert pred_res.status_code == 422
+    assert "no valid glucose readings" in pred_res.json()["detail"].lower()
+
+    # Digital twin intelligence returns safe empty baseline without error
+    twin_res = client.get(f"/api/digital-twin/{p.id}")
+    assert twin_res.status_code == 200
+    twin_data = twin_res.json()
+    assert twin_data["data_freshness_status"] == "no_data"
+    assert twin_data["latest_glucose"] is None

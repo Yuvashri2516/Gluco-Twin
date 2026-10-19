@@ -125,6 +125,16 @@ export default function PatientEhrHistory({ selectedPatient }) {
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
             Vintage: Diagnosed {selectedPatient.years_since_diagnosis} years ago | Status: Under Active Continuous Telemetry Monitoring
           </div>
+          {selectedPatient.medical_history && (
+            <div style={{ marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>
+                Clinical Encounter History &amp; Regimens:
+              </div>
+              <pre style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, background: 'rgba(0,0,0,0.02)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>
+                {selectedPatient.medical_history}
+              </pre>
+            </div>
+          )}
         </div>
 
         {/* Physical Scale & BMI Card */}
@@ -165,10 +175,7 @@ export default function PatientEhrHistory({ selectedPatient }) {
       {error && (
         <div style={{ padding: '16px', background: 'var(--status-critical-bg)', color: 'var(--status-critical)', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}>
           {error}
-        </div>
-      )}
-
-      {/* Laboratory Results Longitudinal Timeline */}
+              {/* Laboratory Results Longitudinal Timeline */}
       {!isLoading && !error && (
         <div style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -180,53 +187,87 @@ export default function PatientEhrHistory({ selectedPatient }) {
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-            {datesAsc.map((dateStr) => {
-              const testGroup = labsByDate[dateStr];
-              const hba1cTest = testGroup.find((t) => t.test_name === 'HbA1c');
-              return (
-                <div key={dateStr} className="metric-card" style={{ padding: '18px', borderTop: '3px solid var(--primary)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-main)' }}>{dateStr}</span>
-                    {hba1cTest && (
-                      <span
-                        className={`badge ${hba1cTest.result >= 8.0 ? 'badge-critical' : hba1cTest.result >= 7.0 ? 'badge-warning' : 'badge-normal'}`}
-                        style={{ fontSize: '0.78rem' }}
-                      >
-                        HbA1c: {hba1cTest.result}%
-                      </span>
-                    )}
-                  </div>
+          {labs.length === 0 ? (
+            <div className="empty-state-card" style={{ padding: '28px', border: '1px dashed var(--border)' }}>
+              <p className="empty-state-text">No laboratory panel results recorded yet for {selectedPatient.name}.</p>
+              <p className="empty-state-sub" style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Use the <strong>Add Reading</strong> tab or upload a PDF/Image report in <strong>Medical Documents</strong> to ingest laboratory results.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+              {datesAsc.map((dateStr) => {
+                const testGroup = labsByDate[dateStr];
+                const hba1cTest = testGroup.find((t) => t.test_name === 'HbA1c');
+                return (
+                  <div key={dateStr} className="metric-card" style={{ padding: '18px', borderTop: '3px solid var(--primary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-main)' }}>{dateStr}</span>
+                      {hba1cTest && (
+                        <span
+                          className={`badge ${hba1cTest.result >= 8.0 ? 'badge-critical' : hba1cTest.result >= 7.0 ? 'badge-warning' : 'badge-normal'}`}
+                          style={{ fontSize: '0.78rem' }}
+                        >
+                          HbA1c: {hba1cTest.result}%
+                        </span>
+                      )}
+                    </div>
 
-                  <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                        <th style={{ padding: '4px 0' }}>Test Name</th>
-                        <th style={{ padding: '4px 0', textAlign: 'right' }}>Result</th>
-                        <th style={{ padding: '4px 0', textAlign: 'right' }}>Ref Range</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {testGroup.map((lab) => (
-                        <tr key={lab.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                          <td style={{ padding: '6px 0', color: 'var(--text-main)', fontWeight: lab.test_name === 'HbA1c' ? 600 : 400 }}>
-                            {lab.test_name}
-                          </td>
-                          <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 600, color: lab.test_name === 'HbA1c' ? 'var(--primary)' : 'var(--text-main)' }}>
-                            {lab.result} {lab.unit}
-                          </td>
-                          <td style={{ padding: '6px 0', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.76rem' }}>
-                            {lab.reference_range || '—'}
-                          </td>
+                    <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                          <th style={{ padding: '4px 0' }}>Test Name</th>
+                          <th style={{ padding: '4px 0', textAlign: 'right' }}>Result</th>
+                          <th style={{ padding: '4px 0', textAlign: 'right' }}>Ref Range</th>
+                          <th style={{ padding: '4px 0', textAlign: 'right' }}>Source</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })}
-          </div>
+                      </thead>
+                      <tbody>
+                        {testGroup.map((lab) => (
+                          <tr key={lab.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                            <td style={{ padding: '6px 0', color: 'var(--text-main)', fontWeight: lab.test_name === 'HbA1c' ? 600 : 400 }}>
+                              {lab.test_name}
+                            </td>
+                            <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 600, color: lab.test_name === 'HbA1c' ? 'var(--primary)' : 'var(--text-main)' }}>
+                              {lab.result} {lab.unit}
+                            </td>
+                            <td style={{ padding: '6px 0', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.76rem' }}>
+                              {lab.reference_range || '—'}
+                            </td>
+                            <td style={{ padding: '6px 0', textAlign: 'right' }}>
+                              <span
+                                style={{
+                                  fontSize: '0.7rem',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  background: lab.data_source === 'manual'
+                                    ? 'rgba(14, 165, 233, 0.12)'
+                                    : lab.data_source === 'imported'
+                                    ? 'rgba(139, 92, 246, 0.12)'
+                                    : 'rgba(100, 116, 139, 0.1)',
+                                  color: lab.data_source === 'manual'
+                                    ? 'var(--primary)'
+                                    : lab.data_source === 'imported'
+                                    ? 'var(--status-twin)'
+                                    : 'var(--text-muted)',
+                                  textTransform: 'capitalize',
+                                }}
+                                title={lab.lab_source || 'Simulated Lab'}
+                              >
+                                {lab.data_source || (lab.is_synthetic ? 'synthetic' : 'verified')}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
+      )}       </div>
       )}
 
       {/* Synthetic Genetic Susceptibility Markers */}

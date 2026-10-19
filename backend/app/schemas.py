@@ -24,19 +24,33 @@ from typing import Optional
 # ---------------------------------------------------------------------------
 class PatientBase(BaseModel):
     """Fields shared by create and read operations."""
-    name: str
-    age: int
-    gender: str
-    diabetes_type: str
-    years_since_diagnosis: int = 0
+    name: str = Field(..., min_length=2, max_length=120)
+    age: int = Field(..., ge=1, le=120)
+    gender: str = Field(..., min_length=1, max_length=20)
+    diabetes_type: str = Field(..., min_length=1, max_length=50)
+    years_since_diagnosis: int = Field(default=0, ge=0, le=100)
     historical_diagnoses: Optional[str] = "None"
-    weight_kg: Optional[float] = None
-    height_cm: Optional[float] = None
+    medical_history: Optional[str] = ""
+    weight_kg: Optional[float] = Field(None, gt=0, le=500)
+    height_cm: Optional[float] = Field(None, gt=0, le=300)
 
 
 class PatientCreate(PatientBase):
     """Schema for creating a new patient (POST body)."""
     pass
+
+
+class PatientUpdate(BaseModel):
+    """Schema for updating an existing patient profile (PUT body)."""
+    name: Optional[str] = Field(None, min_length=2, max_length=120)
+    age: Optional[int] = Field(None, ge=1, le=120)
+    gender: Optional[str] = Field(None, min_length=1, max_length=20)
+    diabetes_type: Optional[str] = Field(None, min_length=1, max_length=50)
+    years_since_diagnosis: Optional[int] = Field(None, ge=0, le=100)
+    historical_diagnoses: Optional[str] = None
+    medical_history: Optional[str] = None
+    weight_kg: Optional[float] = Field(None, gt=0, le=500)
+    height_cm: Optional[float] = Field(None, gt=0, le=300)
 
 
 class PatientRead(PatientBase):
@@ -60,6 +74,8 @@ class LabResultRead(BaseModel):
     measurement_date: datetime
     reference_range: Optional[str] = None
     is_synthetic: bool = True
+    data_source: Optional[str] = "synthetic"
+    lab_source: Optional[str] = "Simulated Diagnostic Laboratory"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -132,7 +148,9 @@ class GlucoseReadingRead(BaseModel):
     patient_id: int
     timestamp: datetime
     value: float
+    unit: Optional[str] = "mg/dL"
     is_valid: bool
+    data_source: Optional[str] = "synthetic"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -146,8 +164,115 @@ class VitalReadingRead(BaseModel):
     timestamp: datetime
     heart_rate: Optional[float]
     hrv: Optional[float]
+    data_source: Optional[str] = "synthetic"
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Manual Medical Data Ingestion Schemas (Phase 2)
+# ---------------------------------------------------------------------------
+class ManualGlucoseCreate(BaseModel):
+    patient_id: int
+    value: float = Field(..., gt=0.5, lt=1000.0, description="Glucose level in specified unit")
+    unit: str = Field(default="mg/dL", description="Unit of measurement: 'mg/dL' or 'mmol/L'")
+    timestamp: Optional[datetime] = None
+    data_source: str = Field(default="manual", description="Explicit source: 'manual', 'imported', 'measured'")
+
+
+class ManualVitalCreate(BaseModel):
+    patient_id: int
+    heart_rate: Optional[float] = Field(None, gt=20.0, lt=300.0, description="Heart rate in bpm")
+    hrv: Optional[float] = Field(None, ge=0.0, lt=500.0, description="HRV in ms")
+    timestamp: Optional[datetime] = None
+    data_source: str = Field(default="manual", description="Explicit source: 'manual', 'imported', 'measured'")
+
+
+class ManualLabCreate(BaseModel):
+    patient_id: int
+    test_name: str = Field(..., min_length=1, max_length=100)
+    result: float = Field(..., description="Numeric lab result value")
+    unit: str = Field(..., min_length=1, max_length=50)
+    reference_range: Optional[str] = Field(None, max_length=100)
+    measurement_date: Optional[datetime] = None
+    lab_source: Optional[str] = Field(default="Manual Clinical Entry", max_length=120)
+    data_source: str = Field(default="manual")
+
+
+class ManualDiagnosisCreate(BaseModel):
+    patient_id: int
+    diagnosis_name: str = Field(..., min_length=2, max_length=200)
+    date: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[str] = "active"
+
+
+# ---------------------------------------------------------------------------
+# Document Understanding & Extraction Schemas (Phase 3 & 4)
+# ---------------------------------------------------------------------------
+class MedicalDocumentRead(BaseModel):
+    id: int
+    patient_id: int
+    original_filename: str
+    file_size: int
+    mime_type: str
+    document_category: str
+    upload_timestamp: datetime
+    processing_status: str
+    raw_text: Optional[str] = None
+    extraction_metadata: Optional[str] = None
+    error_message: Optional[str] = None
+    is_confirmed: bool = False
+    confirmed_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentConfirmRequest(BaseModel):
+    confirmed_labs: list[ManualLabCreate] = []
+    confirmed_readings: list[ManualGlucoseCreate] = []
+    clinical_notes: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# User Authentication & RBAC Schemas
+# ---------------------------------------------------------------------------
+class UserBase(BaseModel):
+    username: str = Field(..., min_length=3, max_length=64)
+    email: Optional[str] = None
+    role: str = Field(default="patient", description="'clinician' or 'patient'")
+    patient_id: Optional[int] = None
+
+
+class UserCreate(UserBase):
+    password: str = Field(..., min_length=6, max_length=128)
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class UserRead(UserBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserRead
+
+
+class TokenPayload(BaseModel):
+    sub: Optional[str] = None
+    role: Optional[str] = None
+    patient_id: Optional[int] = None
+    exp: Optional[int] = None
+
 
 
 # ---------------------------------------------------------------------------

@@ -3,10 +3,13 @@
 # FastAPI   - modern async web framework for building REST APIs
 # uvicorn   - ASGI server that runs FastAPI
 # sqlalchemy - ORM for SQLite database access
-# pandas    - tabular data manipulation (used for synthetic data generation)
+# pandas    - tabular data manipulation (used for synthetic data generation and CSV/XLSX parsing)
 # numpy     - numerical operations (glucose simulation curves)
 # scikit-learn - ML pipeline (used in Phase 3 for prediction)
 # pydantic  - data validation (bundled with FastAPI, listed for clarity)
+# PyMuPDF   - local embedded text extraction from medical PDF documents
+# openpyxl  - tabular parsing of Excel (.xlsx) diagnostic files
+# pytesseract - local OCR integration for scanned medical report images (PNG, JPG)
 
 fastapi>=0.110,<1.0
 uvicorn[standard]>=0.29,<1.0
@@ -15,5 +18,7 @@ pandas>=2.2,<3.0
 numpy>=1.26,<3.0
 scikit-learn>=1.4,<2.0
 pydantic>=2.0,<3.0
-
-
+PyMuPDF>=1.24.0
+openpyxl>=3.1.0
+pytesseract>=0.3.10
+python-multipart>=0.0.9

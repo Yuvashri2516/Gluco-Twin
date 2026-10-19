@@ -44,6 +44,7 @@ class Patient(Base):
     diabetes_type = Column(String(20), nullable=False)          # "Type 1", "Type 2", "Pre-diabetic"
     years_since_diagnosis = Column(Integer, default=0)
     historical_diagnoses  = Column(Text, default="None")
+    medical_history       = Column(Text, default="")
     weight_kg     = Column(Float)
     height_cm     = Column(Float)
     created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -58,6 +59,8 @@ class Patient(Base):
     genetic_markers  = relationship("GeneticMarker", back_populates="patient", lazy="dynamic", cascade="all, delete-orphan")
     sleep_records    = relationship("SleepRecord", back_populates="patient", lazy="dynamic", cascade="all, delete-orphan")
     step_records     = relationship("StepRecord", back_populates="patient", lazy="dynamic", cascade="all, delete-orphan")
+    medical_documents= relationship("MedicalDocument", back_populates="patient", lazy="dynamic", cascade="all, delete-orphan")
+    user_account     = relationship("User", back_populates="patient", uselist=False)
 
     @property
     def calculated_bmi(self):
@@ -82,7 +85,9 @@ class GlucoseReading(Base):
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
     timestamp  = Column(DateTime, nullable=False, index=True)
     value      = Column(Float, nullable=False)   # mg/dL
+    unit       = Column(String(20), default="mg/dL")
     is_valid   = Column(Boolean, default=True)    # Flag for data-quality checks
+    data_source= Column(String(50), default="synthetic") # 'manual', 'imported', 'synthetic', 'measured'
 
     patient = relationship("Patient", back_populates="glucose_readings")
 
@@ -102,6 +107,7 @@ class VitalReading(Base):
     timestamp     = Column(DateTime, nullable=False, index=True)
     heart_rate    = Column(Float)  # bpm
     hrv           = Column(Float)  # ms  (RMSSD or SDNN)
+    data_source   = Column(String(50), default="synthetic") # 'manual', 'imported', 'synthetic', 'measured'
 
     patient = relationship("Patient", back_populates="vital_readings")
 
@@ -182,6 +188,8 @@ class LabResult(Base):
     measurement_date = Column(DateTime, nullable=False, index=True)
     reference_range  = Column(String(50), nullable=True)               # e.g., "< 5.7%", "< 100 mg/dL"
     is_synthetic     = Column(Boolean, default=True, nullable=False)
+    data_source      = Column(String(50), default="synthetic")         # 'manual', 'imported', 'synthetic', 'measured'
+    lab_source       = Column(String(120), default="Simulated Diagnostic Laboratory")
 
     patient = relationship("Patient", back_populates="lab_results")
 
@@ -246,4 +254,59 @@ class StepRecord(Base):
     is_synthetic          = Column(Boolean, default=True, nullable=False)
 
     patient = relationship("Patient", back_populates="step_records")
+
+
+# ---------------------------------------------------------------------------
+# Medical Documents & Uploaded Diagnostic Artifacts
+# ---------------------------------------------------------------------------
+class MedicalDocument(Base):
+    """
+    Stores metadata for patient-associated uploaded medical records (PDF, Images, CSV, XLSX).
+    Physical binaries reside in secure, unguessable storage paths outside public directories.
+    Unconfirmed extraction results remain strictly isolated in extraction_metadata.
+    """
+    __tablename__ = "medical_documents"
+
+    id                  = Column(Integer, primary_key=True, index=True)
+    patient_id          = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    original_filename   = Column(String(255), nullable=False)
+    storage_filename    = Column(String(255), nullable=False, unique=True, index=True)
+    storage_path        = Column(String(500), nullable=False)
+    file_size           = Column(Integer, nullable=False)
+    mime_type           = Column(String(100), nullable=False)
+    document_category   = Column(String(50), default="lab_report")      # 'lab_report', 'clinical_note', 'cgm_export', 'other'
+    upload_timestamp    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    processing_status   = Column(String(50), default="completed")      # 'pending', 'processing', 'completed', 'failed', 'confirmed', 'cancelled'
+    raw_text            = Column(Text, nullable=True)
+    extraction_metadata = Column(Text, nullable=True)                  # JSON string containing candidate extractions & warnings
+    error_message       = Column(Text, nullable=True)
+    is_confirmed        = Column(Boolean, default=False)
+    confirmed_at        = Column(DateTime, nullable=True)
+
+    patient = relationship("Patient", back_populates="medical_documents")
+
+
+# ---------------------------------------------------------------------------
+# User Accounts & Access Control (Authentication / RBAC)
+# ---------------------------------------------------------------------------
+class User(Base):
+    """
+    User account model for authentication and role-based access control (RBAC).
+    Roles:
+      - 'clinician': Authorized to view, create, edit, and manage all cohort patients and documents.
+      - 'patient': Authorized only to access their own patient profile, readings, and documents.
+    """
+    __tablename__ = "users"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    username        = Column(String(64), unique=True, index=True, nullable=False)
+    email           = Column(String(120), unique=True, index=True, nullable=True)
+    hashed_password = Column(String(255), nullable=False)
+    role            = Column(String(32), default="patient", nullable=False)  # 'clinician' or 'patient'
+    patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=True, index=True)
+    is_active       = Column(Boolean, default=True, nullable=False)
+    created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    patient = relationship("Patient", back_populates="user_account")
+
 

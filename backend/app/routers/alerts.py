@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Alert, Patient
+from app.models import Alert, Patient, User
+from app.auth import get_current_user, require_clinician, check_patient_authorization
 from app.schemas import (
     AlertRead,
     AlertEvaluationRequest,
@@ -57,12 +58,16 @@ def list_alerts(
     source: Optional[str] = Query(default=None, description="Filter by source (observed_reading/experimental_prediction)"),
     severity: Optional[str] = Query(default=None, description="Filter by severity (critical/warning/info)"),
     limit: int = Query(default=100, ge=1, le=500),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    List alerts with flexible filtering. Active alerts are prioritized first,
-    followed by most recent timestamps.
+    List alerts with flexible filtering.
+    - Clinicians can filter across all patients.
+    - Patient users are strictly constrained to their own alerts.
     """
+    if current_user.role == "patient":
+        patient_id = current_user.patient_id
     query = db.query(Alert)
 
     if patient_id is not None:
@@ -101,20 +106,30 @@ def list_alerts(
 
 
 @router.get("/{alert_id}", response_model=AlertRead)
-def get_alert(alert_id: int, db: Session = Depends(get_db)):
-    """Retrieve details for a specific alert."""
+def get_alert(
+    alert_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retrieve details for a specific alert. Enforces patient isolation."""
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     if not alert:
         raise HTTPException(status_code=404, detail=f"Alert #{alert_id} not found.")
+    check_patient_authorization(alert.patient_id, current_user)
     return _format_alert(alert)
 
 
 @router.post("/{alert_id}/acknowledge", response_model=AlertRead)
-def acknowledge_alert(alert_id: int, db: Session = Depends(get_db)):
+def acknowledge_alert(
+    alert_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Acknowledge an active alert."""
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     if not alert:
         raise HTTPException(status_code=404, detail=f"Alert #{alert_id} not found.")
+    check_patient_authorization(alert.patient_id, current_user)
 
     if alert.status == "resolved":
         raise HTTPException(
@@ -133,8 +148,12 @@ def acknowledge_alert(alert_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{alert_id}/resolve", response_model=AlertRead)
-def resolve_alert(alert_id: int, db: Session = Depends(get_db)):
-    """Resolve an alert."""
+def resolve_alert(
+    alert_id: int,
+    current_user: User = Depends(require_clinician),
+    db: Session = Depends(get_db),
+):
+    """Resolve an alert. Requires clinician privileges."""
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     if not alert:
         raise HTTPException(status_code=404, detail=f"Alert #{alert_id} not found.")
@@ -159,6 +178,7 @@ def resolve_alert(alert_id: int, db: Session = Depends(get_db)):
 @router.post("/evaluate", response_model=AlertEvaluationResponse)
 def trigger_alert_evaluation(
     request: AlertEvaluationRequest = AlertEvaluationRequest(),
+    current_user: User = Depends(require_clinician),
     db: Session = Depends(get_db),
 ):
     """

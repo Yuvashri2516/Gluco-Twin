@@ -15,7 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Patient, GlucoseReading, VitalReading, Alert, SleepRecord, StepRecord
+from app.models import Patient, GlucoseReading, VitalReading, Alert, SleepRecord, StepRecord, User
+from app.auth import get_current_user, check_patient_authorization
 from app.schemas import (
     DigitalTwinDetailResponse,
     WhatIfSimulationRequest,
@@ -41,12 +42,15 @@ router = APIRouter(prefix="", tags=["Digital Twin & Simulation"])
 def get_digital_twin_intelligence(
     patient_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Compute and return a patient-specific digital twin intelligence summary
     using real stored synthetic telemetry, historical trends, data quality warnings,
     recent alerts, and experimental prediction output.
     """
+    check_patient_authorization(patient_id, current_user)
+
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient #{patient_id} not found.")
@@ -368,6 +372,7 @@ def get_digital_twin_intelligence(
 @router.post("/api/simulation/what-if", response_model=WhatIfSimulationResponse)
 def run_what_if_simulation(
     request: WhatIfSimulationRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -375,6 +380,8 @@ def run_what_if_simulation(
     Simulates hypothetical meal carbohydrate and physical activity perturbations
     against patient baseline glucose using documented, software-only assumptions.
     """
+    check_patient_authorization(request.patient_id, current_user)
+
     patient = db.query(Patient).filter(Patient.id == request.patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient #{request.patient_id} not found.")
@@ -458,6 +465,7 @@ def run_what_if_simulation(
 @router.post("/api/digital-twin/simulate-feed", response_model=SimulatedSensorFeedResponse)
 def simulate_sensor_feed(
     request: SimulatedSensorFeedRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -466,6 +474,8 @@ def simulate_sensor_feed(
     Generates new glucose, heart rate, HRV, and step readings, persists them safely,
     re-evaluates alerts, and computes updated digital twin intelligence.
     """
+    check_patient_authorization(request.patient_id, current_user)
+
     patient = db.query(Patient).filter(Patient.id == request.patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient #{request.patient_id} not found.")
@@ -558,7 +568,7 @@ def simulate_sensor_feed(
     new_alerts = evaluate_all_alerts_for_patient(db, patient)
 
     # 4. Re-calculate twin intelligence
-    updated_twin = get_digital_twin_intelligence(patient.id, db)
+    updated_twin = get_digital_twin_intelligence(patient.id, db=db, current_user=current_user)
 
     return SimulatedSensorFeedResponse(
         patient_id=patient.id,

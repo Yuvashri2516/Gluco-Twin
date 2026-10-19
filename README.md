@@ -2,7 +2,7 @@
 
 *Happiest Health Digital Twin Challenge — Phase 1 Proof-of-Concept*
 
-[![Backend Tests](https://img.shields.io/badge/pytest-71%20passed%20(100%25)-success)](backend/tests)
+[![Backend Tests](https://img.shields.io/badge/pytest-87%20passed%20(100%25)-success)](backend/tests)
 [![Frontend Build](https://img.shields.io/badge/vite%20build-passing-brightgreen)](frontend)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Deployment: Vercel](https://img.shields.io/badge/Frontend-Vercel%20Live-black)](https://gluco-twin-eta.vercel.app/)
@@ -46,6 +46,7 @@ GlucoTwin bridges this gap by unifying:
 4. **Machine Learning Spike Predictor:** A leak-free logistic regression pipeline predicting whether glucose will breach $180\text{ mg/dL}$ within a forward 120-minute window (Chronological Holdout ROC-AUC: 0.945; Baseline Partition: 0.705).
 5. **Dual-Source Alert Surveillance:** Explicitly distinguishes **Observed Telemetry Breaches** from **Model-Predicted Excursions**, complete with acknowledgement, resolution, and simulated hospital clinician pager dispatch.
 6. **What-If Counterfactual Sandbox:** An educational scenario calculator modeling postprandial carbohydrate impacts and physical exertion offsets.
+7. **Patient Management & Document Intelligence:** Interactive patient registration, profile editing, manual data ingestion (glucose, vitals, labs, diagnoses), file uploads (PDF, PNG, JPG, CSV, XLSX), local OCR/text extraction, candidate review/editing drafts, and confirmed ingestion directly into the digital twin.
 
 ---
 
@@ -67,6 +68,11 @@ GlucoTwin bridges this gap by unifying:
 
 ## 3. Implemented Features
 
+- [x] **Patient Registration & Cohort Management (Phase 1):** Interactive "Register Patient" modal and "Edit Profile" functions with full frontend/backend validation, duplicate registration prevention, auto-selection, live BMI computation, and preservation of existing synthetic patients.
+- [x] **Manual Medical Ingestion (Phase 2):** Dedicated forms for spot/continuous glucose (with dual mg/dL and mmol/L support and auto-conversion), autonomic vitals (HR/HRV), clinical lab panels, and clinical encounter notes with explicit source tagging (`manual`, `imported`, `measured`, `synthetic`).
+- [x] **Medical Document Uploads & Storage (Phase 3):** Drag-and-drop file ingestion supporting PDF, PNG, JPG, JPEG, CSV, and XLSX (up to 15MB). Non-guessable UUID storage filenames, strict path traversal defense, and abstract storage provider architecture.
+- [x] **Document Intelligence & Entity Extraction (Phase 4):** Local embedded text parsing via PyMuPDF; local OCR via Tesseract for scanned reports; tabular preview and column mapping for CSV/XLSX; entity detection for HbA1c, FBG, lipids, and dates; patient name mismatch warnings; reviewable unconfirmed draft isolation; and 1-click confirmation saving directly to the patient's EHR.
+- [x] **Digital Twin Integration & Prediction Safety (Phase 5):** Instant recalculation of digital twin metrics and alerts upon manual or imported data saving; graceful "Insufficient patient history / Not validated for this patient" state for new patients lacking continuous telemetry.
 - [x] **Multimodal Patient EHR History:** Height, weight, calculated BMI ($kg/m^2$), historical diagnoses, longitudinal lab panels (HbA1c, Fasting Glucose, Total/HDL/LDL Cholesterol, Triglycerides), and 5 genetic susceptibility markers.
 - [x] **5 Dynamic Physiological Time-Series Streams:** Continuous glucose, heart rate, heart-rate variability, sleep architecture stages, and 15-minute step intervals with daily cumulative totals.
 - [x] **Digital Twin Phenotyping & Excursion Deltas:** Computes 24h baseline vs 1h recent deltas ($\Delta G_{1h}, \Delta HR_{1h}, \Delta HRV_{1h}$), reading density, and data freshness flags.
@@ -76,12 +82,93 @@ GlucoTwin bridges this gap by unifying:
 - [x] **Simulated Clinician Triage Notification Center:** Demonstrates alert escalation to on-call hospital staff and nurses (explicitly disclaimed: local demonstration mode, no external SMS/email).
 - [x] **What-If Counterfactual Sandbox:** Deterministic simulation calculating carb spike vs physical activity offset with subtype sensitivity factors ($K_{type}$) and safety watermarks.
 - [x] **Professional Doctor-Facing Dashboard:** Dark medical aesthetic with patient cohort switching, Recharts visualizations, loading/empty/error states, and notification bell counter.
-- [x] **Automated Testing Suite:** 71 passing pytest backend tests on isolated in-memory databases; 0-error frontend linting; 942ms Vite production build.
+- [x] **Automated Testing Suite:** 87 passing pytest backend tests on isolated in-memory databases; 0-error frontend linting; 1.03s Vite production build.
 - [x] **Complete Hackathon Submission Package:** Standalone Architecture Diagram (PDF/SVG), Presentation Deck (PPTX/PDF), and 20-minute Demo Script.
 
 ---
 
-## 4. Technical Stack & System Architecture
+## 3.1 Patient Management, Document Intelligence & Clinical Ingestion Pipeline
+
+### Phase 1: Patient Registration & Cohort Management
+- **Add / Edit Patient:** Clinicians can register a new patient or update existing profiles with:
+  - Full Name, Age (1–120), Sex/Gender, Diabetes Subtype (`Type 1`, `Type 2`, `Pre-diabetic`, `Gestational`, `None / Healthy`).
+  - Years Since Diagnosis, Height (cm), Weight (kg), and Live BMI preview.
+  - Documented baseline diagnoses and clinical encounter notes.
+- **Data Integrity:** Enforces duplicate patient rejection (prevents rapid double-click duplicate creation), unique integer IDs, and never silently seeds fake readings for newly registered individuals.
+- **Roster Synchronization:** Newly registered patients are immediately selected in the global context, refreshing all downstream panels.
+
+### Phase 2: Manual Medical Data Ingestion
+- **Glucose Readings:** Supports both `mg/dL` (standard US) and `mmol/L` (UK/European/Canadian with automatic standard conversion: $1\text{ mmol/L} \approx 18.0182\text{ mg/dL}$). Rejects future timestamps and values outside physiological bounds ($20 - 800\text{ mg/dL}$).
+- **Autonomic Vitals:** Ingests spot heart rate (bpm) and heart-rate variability (RMSSD, ms) accompanied by timestamp and data source.
+- **Laboratory Panels:** Ingests HbA1c, Fasting Blood Glucose, Lipid panels (Total, HDL, LDL Cholesterol, Triglycerides), Serum Creatinine, eGFR, and Microalbumin with reference ranges and diagnostic facility attribution.
+- **Clinical Encounter Notes:** Allows clinicians to append diagnoses, consultation notes, and regimen adjustments directly to the patient record.
+- **Source Transparency:** All records are explicitly tagged with their data source (`manual`, `imported`, `measured`, or `synthetic`).
+
+### Phase 3: Medical Document & File Uploads
+- **Supported Formats:** PDF (`.pdf`), Medical Images (`.png`, `.jpg`, `.jpeg`), and Tabular Datasets (`.csv`, `.xlsx`).
+- **File Validation:** Enforces strict extension whitelisting, non-empty content checks, and a maximum file size limit of **15MB**.
+- **Secure Storage Abstraction:**
+  - Files are stored in a dedicated local directory (`backend/uploads/` by default, configurable via `GLUCOTWIN_UPLOAD_DIR`).
+  - Filenames are randomized with a UUID hex prefix (`{uuid}_{sanitized_basename}`) to eliminate predictable path traversal or overwrite hazards.
+  - Pluggable `BaseStorageProvider` architecture permits seamless substitution of cloud object storage (e.g. AWS S3, Google Cloud Storage) without altering API route logic.
+  - Direct download endpoint (`GET /api/documents/{id}/download`) serves original files securely with content-type attribution.
+
+### Phase 4: Local Document Intelligence & Extraction
+- **PDF Extraction:** Utilizes local PyMuPDF (`fitz`) for embedded text extraction. When scanned pages without embedded text are encountered, the system gracefully falls back to local Tesseract OCR (or reports configuration status if OCR is not installed).
+- **Medical Image OCR:** Processes PNG/JPG clinical report photos via local Tesseract OCR (`pytesseract`).
+- **Tabular Preview & Mapping:** Parses CSV and XLSX files using pandas and openpyxl, presenting a 25-row preview table and suggesting automated column mappings (`timestamp`, `glucose_value`, `unit`, `test_name`).
+- **Clinical Entity Detection:** Employs regex and pattern matchers to detect:
+  - Document patient name
+  - Report / collection dates
+  - Common lab tests (HbA1c, FBG, Total Cholesterol, HDL, LDL, Triglycerides, Creatinine, eGFR, Microalbumin)
+  - Result values, units, and reference ranges
+- **Identity Safety Check:** If the extracted document name differs from the active patient profile, the system raises a prominent warning banner and requires explicit clinician confirmation before allowing ingestion.
+- **Reviewable Draft Isolation:** Extraction results are kept as reviewable drafts in the `medical_documents.extraction_metadata` JSON field, completely isolated from active EHR tables until confirmed.
+- **Clinician Confirmation:** Clinicians can edit or deselect extracted candidate rows, adjust units or dates, append notes, and click **Confirm & Save to EHR**. Once confirmed, values are written to `lab_results` or `glucose_readings`, the document is marked `is_confirmed = True`, and duplicate re-imports are blocked.
+- **Cancellation:** Clinicians can cancel drafts at any time, leaving patient records entirely untouched.
+
+### Phase 5: Digital Twin Integration & Prediction Safety
+- **Immediate State Synchronization:** Ingested manual readings or confirmed document labs immediately recalculate digital twin statistics and trigger the alert engine.
+- **Prediction Safety Guardrail:** The ML spike prediction model requires continuous telemetry (at least 1 hour of readings) to calculate feature vectors (glycemic velocity, variance, circadian sine/cosine). For newly registered or un-instrumented patients, the dashboard displays a clear, educational **"Insufficient Patient History / Not Validated for this Patient"** status rather than uncalibrated risk scores or false confidence.
+- **Zero Hallucination / Non-Prescriptive:** Synthetic and manually entered data are explicitly labeled. No automated drug dosages or clinical treatment directives are ever generated.
+
+---
+
+## 3.2 Database Schema Architecture & Migrations
+
+GlucoTwin uses SQLite with SQLAlchemy ORM. All schema modifications are non-destructive and verified during application startup (`ensure_patient_columns` and `ensure_alert_columns`):
+
+| Table | Added Columns / Fields | Type & Default | Purpose |
+|---|---|---|---|
+| `patients` | `medical_history` | `TEXT DEFAULT ''` | Longitudinal encounter notes and clinical regimen summaries. |
+| `glucose_readings` | `unit` | `VARCHAR(20) DEFAULT 'mg/dL'` | Measurement unit (`mg/dL` or `mmol/L`). |
+| `glucose_readings` | `data_source` | `VARCHAR(50) DEFAULT 'synthetic'` | Source provenance (`manual`, `imported`, `measured`, `synthetic`). |
+| `vital_readings` | `data_source` | `VARCHAR(50) DEFAULT 'synthetic'` | Source provenance for autonomic vitals. |
+| `lab_results` | `data_source` | `VARCHAR(50) DEFAULT 'synthetic'` | Source provenance for laboratory panels. |
+| `lab_results` | `lab_source` | `VARCHAR(120) DEFAULT 'Simulated Diagnostic Laboratory'` | Diagnostic facility or imported filename. |
+| `medical_documents` *(New)* | `id, patient_id, original_filename, storage_filename, storage_path, file_size, mime_type, document_category, upload_timestamp, processing_status, raw_text, extraction_metadata, error_message, is_confirmed, confirmed_at` | Relational table | Metadata and reviewable draft storage for uploaded diagnostic artifacts. |
+
+---
+
+## 3.3 OCR & Local System Configuration
+
+GlucoTwin utilizes local text extraction and local OCR to protect patient privacy without sending medical documents to third-party generative AI APIs:
+
+1. **Embedded PDF Text:** Handled natively by PyMuPDF (`fitz`), requiring no external system binaries.
+2. **Tabular Documents:** Handled natively by `pandas` and `openpyxl`.
+3. **Scanned Documents & Images (OCR):**
+   - Requires Tesseract-OCR binary installed on the host system:
+     - **Windows:** Download and install from [UB-Mannheim Tesseract Releases](https://github.com/UB-Mannheim/tesseract/wiki). The application automatically checks default installation paths (`C:\Program Files\Tesseract-OCR\tesseract.exe`).
+     - **Ubuntu/Debian:** `sudo apt-get install -y tesseract-ocr`
+     - **macOS:** `brew install tesseract`
+   - If Tesseract is not installed, the application functions normally for native PDFs, CSVs, and Excel files, and displays an informative setup note for image uploads without crashing or falsifying extraction results.
+
+### Local Storage vs. Cloud Production Storage
+- **Local Development:** Uploaded files are stored in `backend/uploads/` (outside the public frontend root).
+- **Free-Tier Cloud Containers (Render):** Render's free tier provides an ephemeral filesystem; files stored locally on the container do not persist across instance restarts.
+- **Production Recommendation:** For production deployments handling longitudinal patient records, configure S3-compatible object storage (e.g. AWS S3, MinIO, or Google Cloud Storage) by implementing the `BaseStorageProvider` interface in `backend/app/services/storage.py` and configuring bucket environment variables.
+
+---
 
 ### Technical Stack
 
