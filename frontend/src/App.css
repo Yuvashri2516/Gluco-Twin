@@ -3578,4 +3578,365 @@ html, body {
   margin-bottom: 4px;
 }
 
+/* Login screen improvements */
+.login-screen-wrapper {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px;
+}
 
+.login-card {
+  max-width: 460px;
+  padding: 36px;
+}
+
+.login-header {
+  margin-bottom: 30px;
+}
+
+.login-logo-badge {
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.12);
+}
+
+.login-title {
+  letter-spacing: -0.04em;
+}
+
+.login-security-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 16px;
+  padding: 7px 11px;
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.08);
+  color: var(--status-normal);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.login-password-field {
+  position: relative;
+  width: 100%;
+}
+
+.login-password-input {
+  padding-right: 48px;
+}
+
+.login-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.login-password-toggle:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+  color: var(--primary);
+}
+
+.login-password-toggle:focus-visible,
+.login-submit-btn:focus-visible,
+.demo-chip-btn:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.login-btn-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.login-submit-btn {
+  min-height: 46px;
+  box-shadow: 0 5px 14px rgba(14, 165, 233, 0.16);
+}
+
+.login-error-alert {
+  overflow-wrap: anywhere;
+}
+
+.demo-chip-btn {
+  min-width: 0;
+}
+
+.demo-credential-details {
+  overflow-wrap: anywhere;
+}
+
+.login-footer-disclaimer {
+  line-height: 1.55;
+}
+
+@media (max-width: 480px) {
+  .login-screen-wrapper {
+    align-items: flex-start;
+    padding: 18px 12px;
+  }
+
+  .login-card {
+    max-width: 100%;
+    padding: 26px 20px;
+    border-radius: var(--radius-md);
+  }
+
+  .login-header {
+    margin-bottom: 24px;
+  }
+
+  .login-title {
+    font-size: 1.5rem;
+  }
+
+  .login-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .login-form {
+    gap: 14px;
+  }
+
+  .demo-chips {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-chip-btn {
+    padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-card,
+  .login-spinner,
+  .login-submit-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+/* =========================================================
+   GLUCOTWIN LOGIN AND REGISTRATION
+   ========================================================= */
+
+.auth-section-heading {
+  margin: 24px 0 20px;
+  text-align: left;
+}
+
+.auth-section-heading h2 {
+  margin: 0 0 7px;
+  color: var(--text-primary, #172033);
+  font-size: 25px;
+  font-weight: 750;
+  letter-spacing: -0.7px;
+}
+
+.auth-section-heading p {
+  margin: 0;
+  color: var(--text-secondary, #667085);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.auth-switch-panel {
+  margin-top: 22px;
+  padding: 20px 12px;
+  text-align: center;
+  border: 1px solid var(--border-color, #e4e7ec);
+  border-radius: 14px;
+  background: var(--surface-secondary, #f8fafc);
+}
+
+.auth-switch-panel p {
+  margin: 0 0 8px;
+  color: var(--text-secondary, #667085);
+  font-size: 13px;
+}
+
+.auth-switch-btn {
+  border: 0;
+  padding: 5px 8px;
+  background: transparent;
+  color: var(--primary-color, #2563eb);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.auth-switch-btn:hover {
+  color: var(--primary-hover, #1d4ed8);
+  text-decoration: underline;
+}
+
+.auth-switch-btn:focus-visible,
+.auth-password-toggle:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.3);
+  outline-offset: 3px;
+  border-radius: 5px;
+}
+
+.auth-password-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.auth-password-input {
+  width: 100%;
+  padding-right: 66px !important;
+}
+
+.auth-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  border: 0;
+  padding: 5px;
+  color: var(--primary-color, #2563eb);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-password-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.auth-select {
+  width: 100%;
+  cursor: pointer;
+}
+
+.register-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 17px 14px;
+}
+
+.register-form-grid .form-group {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.register-field-full {
+  grid-column: 1 / -1;
+}
+
+.register-form > .login-submit-btn {
+  margin-top: 23px;
+}
+
+.auth-field-hint {
+  display: block;
+  margin-top: 7px;
+  color: var(--text-secondary, #667085);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.auth-privacy-note {
+  margin: 13px 0 0;
+  color: var(--text-secondary, #667085);
+  font-size: 11px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.login-success-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 13px 14px;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.login-success-alert svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.login-btn-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.login-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: auth-spinner-rotation 0.7s linear infinite;
+}
+
+@keyframes auth-spinner-rotation {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.login-card-register {
+  max-width: 540px;
+}
+
+@media (max-width: 480px) {
+  .auth-section-heading {
+    margin-top: 20px;
+  }
+
+  .auth-section-heading h2 {
+    font-size: 22px;
+  }
+
+  .register-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 15px;
+  }
+
+  .register-field-full {
+    grid-column: auto;
+  }
+
+  .auth-switch-panel {
+    padding: 17px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-spinner {
+    animation-duration: 1.5s;
+  }
+
+  .auth-switch-btn {
+    transition: none;
+  }
+}

@@ -496,3 +496,13 @@ class SimulatedSensorFeedResponse(BaseModel):
     is_synthetic_data: bool = True
     message: str
 
+
+class PatientSignupRequest(BaseModel):
+    """Public registration request. Role and patient_id are server-controlled."""
+    name: str = Field(..., min_length=2, max_length=120)
+    email: str = Field(..., min_length=5, max_length=254)
+    username: str = Field(..., min_length=3, max_length=64)
+    password: str = Field(..., min_length=8, max_length=128)
+    age: int = Field(..., ge=1, le=120)
+    gender: str = Field(..., min_length=1, max_length=10)
+    diabetes_type: str = Field(..., min_length=1, max_length=20)
