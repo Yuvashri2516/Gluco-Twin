@@ -156,12 +156,12 @@ export default function DigitalTwinPanel({
               alignItems: 'center',
               gap: '8px',
               backgroundColor: 'var(--primary)',
-              color: '#0f172a',
+              color: '#ffffff',
               border: 'none',
               borderRadius: 'var(--radius-sm)',
               cursor: isSimulatingFeed ? 'not-allowed' : 'pointer',
               opacity: isSimulatingFeed ? 0.7 : 1,
-              boxShadow: '0 2px 8px rgba(56, 189, 248, 0.25)',
+              boxShadow: '0 2px 8px rgba(13, 148, 136, 0.3)',
             }}
           >
             {isSimulatingFeed ? (

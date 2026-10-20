@@ -28,7 +28,14 @@ export function resolveApiBaseUrl() {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
 
   if (typeof envUrl === 'string' && envUrl.trim()) {
-    return envUrl.trim().replace(/\/+$/, '');
+    const cleanUrl = envUrl.trim().replace(/\/+$/, '');
+    const isLocalhost = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(cleanUrl);
+
+    // In production builds, ignore local loopback addresses (127.0.0.1 / localhost)
+    // inherited from local development .env files, ensuring production uses the deployed backend.
+    if (!import.meta.env.PROD || !isLocalhost) {
+      return cleanUrl;
+    }
   }
 
   if (import.meta.env.PROD) {

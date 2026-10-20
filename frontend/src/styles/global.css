@@ -478,29 +478,35 @@
   white-space: nowrap;
 }
 
+.badge-normal,
 .badge-target {
-  background-color: var(--color-target-badge-bg);
-  color: var(--color-target-green-dark);
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
 }
 
 .badge-warning {
-  background-color: var(--color-warning-badge-bg);
-  color: var(--color-warning-amber-dark);
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
 }
 
 .badge-critical {
-  background-color: var(--color-critical-badge-bg);
-  color: var(--color-critical-rose-dark);
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .badge-twin {
-  background-color: var(--color-twin-badge-bg);
-  color: var(--color-twin-violet-dark);
+  background-color: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
 }
 
 .badge-neutral {
-  background-color: var(--color-surface-hover);
-  color: var(--color-navy-700);
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
 }
 
 /* Common Buttons */
@@ -518,23 +524,29 @@
 }
 
 .btn-primary {
-  background-color: var(--color-teal-600);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, var(--color-teal-600) 0%, var(--color-teal-700) 100%);
+  color: #FFFFFF !important;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
 }
 
-.btn-primary:hover {
-  background-color: var(--color-teal-700);
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
+  filter: brightness(1.05);
 }
 
 .btn-secondary {
   background-color: var(--color-surface);
-  color: var(--color-navy-700);
+  color: var(--color-navy-800);
   border: 1px solid var(--color-border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background-color: var(--color-surface-hover);
   color: var(--color-navy-900);
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
 }
 
 .btn-outline {
@@ -543,13 +555,14 @@
   border: 1px solid var(--color-teal-600);
 }
 
-.btn-outline:hover {
+.btn-outline:hover:not(:disabled) {
   background-color: var(--color-teal-50);
 }
 
 .btn-sm {
-  padding: 4px 10px;
+  padding: 6px 12px;
   font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
 }
 
 /* Form Controls & Range Sliders */
