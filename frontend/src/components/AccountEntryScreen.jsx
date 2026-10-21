@@ -10,6 +10,7 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
   // Sign-in state
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
 
   // Patient Registration state
   const [patientForm, setPatientForm] = useState({
@@ -22,6 +23,8 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
     gender: 'Other',
     diabetesType: 'Type 2',
   });
+  const [showPatientPassword, setShowPatientPassword] = useState(false);
+  const [showPatientConfirm, setShowPatientConfirm] = useState(false);
 
   // Doctor Registration state
   const [doctorForm, setDoctorForm] = useState({
@@ -32,6 +35,8 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
     confirmPassword: '',
     medicalLicenseNumber: '',
   });
+  const [showDoctorPassword, setShowDoctorPassword] = useState(false);
+  const [showDoctorConfirm, setShowDoctorConfirm] = useState(false);
 
   // UI status states
   const [isLoading, setIsLoading] = useState(false);
@@ -44,12 +49,19 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
   };
 
   const handlePortalSwitch = (portal) => {
-    setActivePortal(portal);
-    setActiveMode('signin');
-    resetFormFeedback();
+    if (activePortal !== portal) {
+      setActivePortal(portal);
+      resetFormFeedback();
+    }
   };
 
   const handleModeSwitch = (mode) => {
+    setActiveMode(mode);
+    resetFormFeedback();
+  };
+
+  const handlePortalAndMode = (portal, mode) => {
+    setActivePortal(portal);
     setActiveMode(mode);
     resetFormFeedback();
   };
@@ -180,8 +192,8 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
       <div className="account-entry-container">
         {/* Brand Header */}
         <div className="account-entry-header">
-          <div className="account-brand-badge">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <div className="account-brand-badge" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
           </div>
@@ -191,64 +203,158 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
           </p>
         </div>
 
-        {/* Portal Selection Cards */}
-        <div className="portal-selector-row">
-          <button
-            type="button"
-            className={`portal-choice-card ${isPatient ? 'selected patient-theme' : ''}`}
+        {/* PART 2: PATIENT AND DOCTOR OPTIONS (Top Distinguishable Cards) */}
+        <div className="portal-cards-grid" role="group" aria-label="Portal Selection">
+          {/* 1. Patient Portal Card */}
+          <div
+            className={`portal-select-card patient ${isPatient ? 'active' : ''}`}
             onClick={() => handlePortalSwitch('patient')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handlePortalSwitch('patient'); }}
             aria-pressed={isPatient}
+            id="portal-card-patient"
           >
-            <div className="portal-card-icon patient-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
+            <div className="portal-card-header">
+              <div className="portal-card-icon-wrap patient" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+              <div className="portal-card-title-group">
+                <div className="portal-card-badge-row">
+                  <span className="portal-card-badge patient">Personal Health</span>
+                  {isPatient && <span className="portal-active-pill patient">Active Portal</span>}
+                </div>
+                <h2 className="portal-card-heading">Patient Portal</h2>
+              </div>
             </div>
-            <div className="portal-card-text">
-              <span className="portal-card-tag">Patient Portal</span>
-              <h2 className="portal-card-title">Patient Access</h2>
-              <p className="portal-card-desc">Personal glucose telemetry, digital twin &amp; health reports</p>
-            </div>
-          </button>
 
-          <button
-            type="button"
-            className={`portal-choice-card ${!isPatient ? 'selected doctor-theme' : ''}`}
+            <p className="portal-card-desc">
+              Access your personal health records and glucose insights.
+            </p>
+
+            <div className="portal-card-actions">
+              <button
+                type="button"
+                className={`portal-action-btn ${isPatient && activeMode === 'signin' ? 'btn-active-patient' : 'btn-outline-patient'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePortalAndMode('patient', 'signin');
+                }}
+                id="btn-patient-login-option"
+              >
+                Patient Login
+              </button>
+              <button
+                type="button"
+                className={`portal-action-btn ${isPatient && activeMode === 'register' ? 'btn-active-patient' : 'btn-outline-patient'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePortalAndMode('patient', 'register');
+                }}
+                id="btn-patient-create-option"
+              >
+                Create Patient Account
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Doctor Portal Card */}
+          <div
+            className={`portal-select-card doctor ${!isPatient ? 'active' : ''}`}
             onClick={() => handlePortalSwitch('doctor')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handlePortalSwitch('doctor'); }}
             aria-pressed={!isPatient}
+            id="portal-card-doctor"
           >
-            <div className="portal-card-icon doctor-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
-                <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
-                <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
-                <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
-              </svg>
+            <div className="portal-card-header">
+              <div className="portal-card-icon-wrap doctor" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+                  <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+                  <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+                  <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+                </svg>
+              </div>
+              <div className="portal-card-title-group">
+                <div className="portal-card-badge-row">
+                  <span className="portal-card-badge doctor">Clinical Oversight</span>
+                  {!isPatient && <span className="portal-active-pill doctor">Active Portal</span>}
+                </div>
+                <h2 className="portal-card-heading">Doctor Portal</h2>
+              </div>
             </div>
-            <div className="portal-card-text">
-              <span className="portal-card-tag">Doctor Portal</span>
-              <h2 className="portal-card-title">Clinician Access</h2>
-              <p className="portal-card-desc">Patient cohort oversight, twin analytics &amp; clinical triage</p>
+
+            <p className="portal-card-desc">
+              Access authorized patient records and clinical insights.
+            </p>
+
+            <div className="portal-card-actions">
+              <button
+                type="button"
+                className={`portal-action-btn ${!isPatient && activeMode === 'signin' ? 'btn-active-doctor' : 'btn-outline-doctor'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePortalAndMode('doctor', 'signin');
+                }}
+                id="btn-doctor-login-option"
+              >
+                Doctor Login
+              </button>
+              <button
+                type="button"
+                className={`portal-action-btn ${!isPatient && activeMode === 'register' ? 'btn-active-doctor' : 'btn-outline-doctor'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePortalAndMode('doctor', 'register');
+                }}
+                id="btn-doctor-request-option"
+              >
+                Request Doctor Account
+              </button>
             </div>
-          </button>
+          </div>
         </div>
 
-        {/* Portal Content Box */}
-        <div className={`portal-content-box ${isPatient ? 'patient-border' : 'doctor-border'}`}>
-          {/* Sub-tabs: Sign In vs Register / Request */}
-          <div className="portal-subtabs">
+        {/* MAIN AUTHENTICATION CARD (Light Theme) */}
+        <div className={`portal-content-box ${isPatient ? 'patient-portal-active' : 'doctor-portal-active'}`}>
+          {/* Header indicator inside card */}
+          <div className="auth-card-topbar">
+            <div>
+              <span className={`auth-portal-tag ${isPatient ? 'patient' : 'doctor'}`}>
+                {isPatient ? 'Patient Portal' : 'Doctor Portal'}
+              </span>
+              <h2 className="auth-card-heading">
+                {isPatient
+                  ? activeMode === 'signin' ? 'Sign In to Your Patient Account' : 'Register for Patient Access'
+                  : activeMode === 'signin' ? 'Sign In to Clinical Workspace' : 'Submit Clinical Account Request'}
+              </h2>
+            </div>
+          </div>
+
+          {/* PART 3: SUB-TABS (Sign In vs Register / Request) */}
+          <div className="portal-subtabs" role="tablist">
             <button
               type="button"
+              role="tab"
+              aria-selected={activeMode === 'signin'}
               className={`subtab-btn ${activeMode === 'signin' ? 'active' : ''}`}
               onClick={() => handleModeSwitch('signin')}
+              id="subtab-signin"
             >
               {isPatient ? 'Patient Sign In' : 'Doctor Sign In'}
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeMode === 'register'}
               className={`subtab-btn ${activeMode === 'register' ? 'active' : ''}`}
               onClick={() => handleModeSwitch('register')}
+              id="subtab-register"
             >
               {isPatient ? 'Create Patient Account' : 'Request Doctor Account'}
             </button>
@@ -256,8 +362,8 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
 
           {/* Feedback Messages */}
           {errorMessage && (
-            <div className="portal-alert error-alert" role="alert">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="portal-alert error-alert" role="alert" id="auth-error-alert">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
               <span>{errorMessage}</span>
@@ -265,8 +371,8 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
           )}
 
           {successMessage && (
-            <div className="portal-alert success-alert" role="status">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="portal-alert success-alert" role="status" id="auth-success-alert">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
@@ -276,7 +382,7 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
 
           {/* 1. SIGN IN FORM */}
           {activeMode === 'signin' && (
-            <form onSubmit={handleSignIn} className="portal-form">
+            <form onSubmit={handleSignIn} className="portal-form" id="form-auth-signin">
               <div className="form-group">
                 <label className="form-label" htmlFor="portal-username">
                   {isPatient ? 'Patient Username' : 'Clinician Username'}
@@ -285,7 +391,7 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
                   id="portal-username"
                   type="text"
                   className="form-input"
-                  placeholder={isPatient ? "e.g. ananya_sharma or rajesh_kumar" : "e.g. dr_sharma"}
+                  placeholder={isPatient ? 'e.g. ananya_sharma or rajesh_kumar' : 'e.g. dr_sharma'}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   disabled={isLoading}
@@ -296,26 +402,47 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
 
               <div className="form-group">
                 <label className="form-label" htmlFor="portal-password">Password</label>
-                <input
-                  id="portal-password"
-                  type="password"
-                  className="form-input"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  required
-                />
+                <div className="password-input-wrapper">
+                  <input
+                    id="portal-password"
+                    type={showSignInPassword ? 'text' : 'password'}
+                    className="form-input"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowSignInPassword((v) => !v)}
+                    aria-label={showSignInPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showSignInPassword ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <button
                 type="submit"
                 className={`portal-submit-btn ${isPatient ? 'patient-btn' : 'doctor-btn'}`}
                 disabled={isLoading}
+                id="btn-submit-signin"
               >
                 {isLoading ? (
                   <span className="btn-loading">
-                    <svg className="login-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="login-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                     </svg>
                     Authenticating credentials...
@@ -329,7 +456,7 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
 
           {/* 2. PATIENT REGISTRATION FORM */}
           {activeMode === 'register' && isPatient && (
-            <form onSubmit={handlePatientRegister} className="portal-form">
+            <form onSubmit={handlePatientRegister} className="portal-form" id="form-patient-register">
               <div className="form-group">
                 <label className="form-label" htmlFor="p-fullname">Full Name *</label>
                 <input
@@ -376,29 +503,65 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
               <div className="form-row-2">
                 <div className="form-group">
                   <label className="form-label" htmlFor="p-password">Password (min 8 chars) *</label>
-                  <input
-                    id="p-password"
-                    type="password"
-                    className="form-input"
-                    placeholder="Create password"
-                    value={patientForm.password}
-                    onChange={(e) => setPatientForm({ ...patientForm, password: e.target.value })}
-                    disabled={isLoading}
-                    required
-                  />
+                  <div className="password-input-wrapper">
+                    <input
+                      id="p-password"
+                      type={showPatientPassword ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="Create password"
+                      value={patientForm.password}
+                      onChange={(e) => setPatientForm({ ...patientForm, password: e.target.value })}
+                      disabled={isLoading}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowPatientPassword((v) => !v)}
+                      aria-label={showPatientPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPatientPassword ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="1" y1="1" x2="23" y2="23" /><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8" />
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="p-confirm">Confirm Password *</label>
-                  <input
-                    id="p-confirm"
-                    type="password"
-                    className="form-input"
-                    placeholder="Confirm password"
-                    value={patientForm.confirmPassword}
-                    onChange={(e) => setPatientForm({ ...patientForm, confirmPassword: e.target.value })}
-                    disabled={isLoading}
-                    required
-                  />
+                  <div className="password-input-wrapper">
+                    <input
+                      id="p-confirm"
+                      type={showPatientConfirm ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="Confirm password"
+                      value={patientForm.confirmPassword}
+                      onChange={(e) => setPatientForm({ ...patientForm, confirmPassword: e.target.value })}
+                      disabled={isLoading}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowPatientConfirm((v) => !v)}
+                      aria-label={showPatientConfirm ? 'Hide password' : 'Show password'}
+                    >
+                      {showPatientConfirm ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="1" y1="1" x2="23" y2="23" /><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8" />
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -454,6 +617,7 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
                 type="submit"
                 className="portal-submit-btn patient-btn"
                 disabled={isLoading}
+                id="btn-submit-patient-register"
               >
                 {isLoading ? 'Creating Patient Account...' : 'Complete Patient Registration'}
               </button>
@@ -462,14 +626,14 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
 
           {/* 3. DOCTOR REQUEST FORM */}
           {activeMode === 'register' && !isPatient && (
-            <form onSubmit={handleDoctorRegister} className="portal-form">
+            <form onSubmit={handleDoctorRegister} className="portal-form" id="form-doctor-register">
               <div className="security-notice-callout">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
                 <span>
-                  <strong>Clinical Access Security Policy:</strong> Public registration requests require verified clinical administrator approval.
-                  Pending accounts are prevented from accessing patient records or clinician tools.
+                  <strong>Clinical Access Security Policy:</strong> Public clinician account requests require verification and authorization.
+                  Pending accounts are prevented from accessing patient records or clinical tools until approved by an administrator.
                 </span>
               </div>
 
@@ -519,34 +683,70 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
               <div className="form-row-2">
                 <div className="form-group">
                   <label className="form-label" htmlFor="d-password">Password (min 8 chars) *</label>
-                  <input
-                    id="d-password"
-                    type="password"
-                    className="form-input"
-                    placeholder="Create strong password"
-                    value={doctorForm.password}
-                    onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })}
-                    disabled={isLoading}
-                    required
-                  />
+                  <div className="password-input-wrapper">
+                    <input
+                      id="d-password"
+                      type={showDoctorPassword ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="Create strong password"
+                      value={doctorForm.password}
+                      onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })}
+                      disabled={isLoading}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowDoctorPassword((v) => !v)}
+                      aria-label={showDoctorPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showDoctorPassword ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="1" y1="1" x2="23" y2="23" /><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8" />
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="d-confirm">Confirm Password *</label>
-                  <input
-                    id="d-confirm"
-                    type="password"
-                    className="form-input"
-                    placeholder="Confirm password"
-                    value={doctorForm.confirmPassword}
-                    onChange={(e) => setDoctorForm({ ...doctorForm, confirmPassword: e.target.value })}
-                    disabled={isLoading}
-                    required
-                  />
+                  <div className="password-input-wrapper">
+                    <input
+                      id="d-confirm"
+                      type={showDoctorConfirm ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="Confirm password"
+                      value={doctorForm.confirmPassword}
+                      onChange={(e) => setDoctorForm({ ...doctorForm, confirmPassword: e.target.value })}
+                      disabled={isLoading}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowDoctorConfirm((v) => !v)}
+                      aria-label={showDoctorConfirm ? 'Hide password' : 'Show password'}
+                    >
+                      {showDoctorConfirm ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="1" y1="1" x2="23" y2="23" /><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8" />
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="d-license">Medical Registration / License Number</label>
+                <label className="form-label" htmlFor="d-license">Medical Registration / License Number (Optional)</label>
                 <input
                   id="d-license"
                   type="text"
@@ -562,13 +762,14 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
                 type="submit"
                 className="portal-submit-btn doctor-btn"
                 disabled={isLoading}
+                id="btn-submit-doctor-register"
               >
                 {isLoading ? 'Submitting Clinical Request...' : 'Submit Doctor Account Request'}
               </button>
             </form>
           )}
 
-          {/* Development Demo Credentials Helper (STRIPPED IN PRODUCTION ASSETS) */}
+          {/* Development Demo Credentials Helper */}
           {import.meta.env.DEV && (
             <div className="demo-credentials-dock">
               <span className="demo-dock-title">
@@ -616,7 +817,7 @@ export default function AccountEntryScreen({ onLoginSuccess }) {
         {/* Legal Disclaimer */}
         <div className="account-entry-disclaimer">
           <p>
-            <strong>RESEARCH &amp; DEMONSTRATION PROTOTYPE:</strong> Role-based access control and patient data isolation
+            <strong>RESEARCH &amp; CLINICAL DEMONSTRATION:</strong> Role-based access control and patient data isolation
             are cryptographically enforced server-side. Not clinically certified. Never enter real protected health information (PHI).
           </p>
         </div>

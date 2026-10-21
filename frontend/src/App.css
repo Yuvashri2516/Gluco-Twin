@@ -3936,15 +3936,20 @@ html, body {
 }
 
 /* ==========================================================================
-   ACCOUNT ENTRY SCREEN (PHASE 1 - 4: PATIENT & DOCTOR PORTALS)
+   ACCOUNT ENTRY SCREEN (LIGHT THEME: PATIENT & DOCTOR PORTALS)
    ========================================================================== */
 .account-entry-screen {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
-  background: radial-gradient(circle at 50% 15%, rgba(14, 165, 233, 0.12) 0%, rgba(10, 15, 29, 0.95) 75%), var(--bg-app, #0a0f1d);
+  padding: 48px 20px;
+  background-color: #F5F9FF;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(220, 235, 252, 0.6) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(226, 243, 240, 0.6) 0px, transparent 50%);
+  color: #172554;
+  font-family: var(--font-family, 'Plus Jakarta Sans', sans-serif);
 }
 
 .account-entry-container {
@@ -3955,6 +3960,7 @@ html, body {
   gap: 22px;
 }
 
+/* Brand Header */
 .account-entry-header {
   text-align: center;
   display: flex;
@@ -3963,78 +3969,82 @@ html, body {
 }
 
 .account-brand-badge {
-  width: 58px;
-  height: 58px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(16, 185, 129, 0.25));
-  border: 1px solid rgba(14, 165, 233, 0.4);
-  color: #38bdf8;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0D9488 0%, #2563EB 100%);
+  color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 14px;
-  box-shadow: 0 0 25px rgba(14, 165, 233, 0.25);
+  margin-bottom: 12px;
+  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.22);
 }
 
 .account-brand-title {
-  font-size: 2.1rem;
+  font-size: 2.15rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   margin: 0 0 6px 0;
-  background: linear-gradient(to right, #ffffff, #cbd5e1);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #172554;
 }
 
 .account-brand-subtitle {
-  font-size: 0.92rem;
-  color: var(--text-secondary, #94a3b8);
+  font-size: 0.95rem;
+  color: #64748B;
   margin: 0;
-  max-width: 480px;
-  line-height: 1.45;
+  max-width: 500px;
+  line-height: 1.5;
 }
 
-/* Portal Selection Cards */
-.portal-selector-row {
+/* PART 2: Portal Selection Cards (Grid at top) */
+.portal-cards-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
 
-.portal-choice-card {
-  background: rgba(18, 24, 40, 0.7);
-  border: 2px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+.portal-select-card {
+  background: #FFFFFF;
+  border: 2px solid #DCE5F2;
   border-radius: 14px;
-  padding: 18px 16px;
+  padding: 18px 18px;
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
   cursor: pointer;
   text-align: left;
-  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
   position: relative;
-  overflow: hidden;
 }
 
-.portal-choice-card:hover {
-  background: rgba(26, 34, 56, 0.85);
-  border-color: rgba(255, 255, 255, 0.2);
+.portal-select-card:hover {
+  border-color: #CBD5E1;
   transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.07);
 }
 
-.portal-choice-card.selected.patient-theme {
-  border-color: #10b981;
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.12) 0%, rgba(18, 24, 40, 0.85) 100%);
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+.portal-select-card.patient.active {
+  border-color: #0D9488;
+  background: #FFFFFF;
+  box-shadow: 0 8px 24px -4px rgba(13, 148, 136, 0.16);
 }
 
-.portal-choice-card.selected.doctor-theme {
-  border-color: #3b82f6;
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.14) 0%, rgba(18, 24, 40, 0.85) 100%);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+.portal-select-card.doctor.active {
+  border-color: #2563EB;
+  background: #FFFFFF;
+  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.16);
 }
 
-.portal-card-icon {
+.portal-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.portal-card-icon-wrap {
   width: 44px;
   height: 44px;
   border-radius: 10px;
@@ -4044,142 +4054,337 @@ html, body {
   flex-shrink: 0;
 }
 
-.portal-card-icon.patient-icon {
-  background: rgba(16, 185, 129, 0.16);
-  color: #10b981;
+.portal-card-icon-wrap.patient {
+  background: #CCFBF1;
+  color: #0D9488;
 }
 
-.portal-card-icon.doctor-icon {
-  background: rgba(59, 130, 246, 0.16);
-  color: #60a5fa;
+.portal-card-icon-wrap.doctor {
+  background: #DBEAFE;
+  color: #2563EB;
 }
 
-.portal-card-text {
+.portal-card-title-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.portal-card-tag {
+.portal-card-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.portal-card-badge {
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #64748b);
 }
 
-.portal-choice-card.selected.patient-theme .portal-card-tag {
-  color: #10b981;
+.portal-card-badge.patient {
+  color: #0D9488;
 }
 
-.portal-choice-card.selected.doctor-theme .portal-card-tag {
-  color: #60a5fa;
+.portal-card-badge.doctor {
+  color: #2563EB;
 }
 
-.portal-card-title {
-  font-size: 1.05rem;
+.portal-active-pill {
+  font-size: 0.65rem;
   font-weight: 700;
-  color: var(--text-main, #f8fafc);
+  padding: 1px 6px;
+  border-radius: 9999px;
+}
+
+.portal-active-pill.patient {
+  background: #CCFBF1;
+  color: #0F766E;
+}
+
+.portal-active-pill.doctor {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.portal-card-heading {
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #172554;
   margin: 0;
 }
 
 .portal-card-desc {
-  font-size: 0.76rem;
-  color: var(--text-secondary, #94a3b8);
-  margin: 2px 0 0;
-  line-height: 1.35;
+  font-size: 0.82rem;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.4;
 }
 
-/* Portal Content Box */
+.portal-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.portal-action-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.portal-action-btn.btn-active-patient {
+  background: #0D9488;
+  color: #FFFFFF;
+  border: 1px solid #0D9488;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
+}
+
+.portal-action-btn.btn-outline-patient {
+  background: #F0FDFA;
+  color: #0F766E;
+  border: 1px solid #CCFBF1;
+}
+
+.portal-action-btn.btn-outline-patient:hover {
+  background: #CCFBF1;
+  border-color: #99F6E4;
+}
+
+.portal-action-btn.btn-active-doctor {
+  background: #2563EB;
+  color: #FFFFFF;
+  border: 1px solid #2563EB;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+.portal-action-btn.btn-outline-doctor {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #DBEAFE;
+}
+
+.portal-action-btn.btn-outline-doctor:hover {
+  background: #DBEAFE;
+  border-color: #BFDBFE;
+}
+
+/* MAIN AUTHENTICATION CARD */
 .portal-content-box {
-  background: rgba(18, 24, 40, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  background: #FFFFFF;
+  border: 1px solid #DCE5F2;
   border-radius: 16px;
-  padding: 28px 28px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-  transition: border-color 0.2s ease;
+  padding: 32px 32px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.06), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
 }
 
-.portal-content-box.patient-border {
-  border-color: rgba(16, 185, 129, 0.35);
+.portal-content-box.patient-portal-active {
+  border-top: 4px solid #0D9488;
 }
 
-.portal-content-box.doctor-border {
-  border-color: rgba(59, 130, 246, 0.35);
+.portal-content-box.doctor-portal-active {
+  border-top: 4px solid #2563EB;
+}
+
+.auth-card-topbar {
+  margin-bottom: 20px;
+}
+
+.auth-portal-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.auth-portal-tag.patient {
+  background: #F0FDFA;
+  color: #0F766E;
+  border: 1px solid #CCFBF1;
+}
+
+.auth-portal-tag.doctor {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #DBEAFE;
+}
+
+.auth-card-heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #172554;
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 /* Sub-tabs */
 .portal-subtabs {
   display: flex;
-  background: rgba(10, 15, 29, 0.7);
+  background: #F1F5F9;
   border-radius: 10px;
   padding: 4px;
   margin-bottom: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid #DCE5F2;
+  gap: 4px;
 }
 
 .subtab-btn {
   flex: 1;
-  padding: 9px 14px;
+  padding: 10px 14px;
   border: none;
   background: transparent;
-  color: var(--text-muted, #94a3b8);
-  font-size: 0.86rem;
+  color: #475569;
+  font-size: 0.88rem;
   font-weight: 600;
   border-radius: 7px;
   cursor: pointer;
   transition: all 0.18s ease;
+  text-align: center;
 }
 
 .subtab-btn:hover {
-  color: var(--text-main, #fff);
+  color: #172554;
+  background: rgba(255, 255, 255, 0.7);
 }
 
-.subtab-btn.active {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+.portal-content-box.patient-portal-active .subtab-btn.active {
+  background: #F0FDFA;
+  color: #0F766E;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  border: 1px solid #99F6E4;
 }
 
-.portal-content-box.patient-border .subtab-btn.active {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
+.portal-content-box.doctor-portal-active .subtab-btn.active {
+  background: #EFF6FF;
+  color: #1E40AF;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  border: 1px solid #BFDBFE;
 }
 
-.portal-content-box.doctor-border .subtab-btn.active {
-  background: rgba(59, 130, 246, 0.2);
-  color: #93c5fd;
-}
-
-/* Alerts inside portal */
+/* Feedback Alerts */
 .portal-alert {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 12px 14px;
   border-radius: 8px;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   margin-bottom: 18px;
+  line-height: 1.45;
 }
 
 .portal-alert.error-alert {
-  background: rgba(239, 68, 68, 0.14);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #991B1B;
+}
+
+.portal-alert.error-alert svg {
+  color: #DC2626;
+  flex-shrink: 0;
 }
 
 .portal-alert.success-alert {
-  background: rgba(16, 185, 129, 0.14);
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  color: #6ee7b7;
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  color: #166534;
 }
 
-/* Forms inside portal */
+.portal-alert.success-alert svg {
+  color: #16A34A;
+  flex-shrink: 0;
+}
+
+/* Forms */
 .portal-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #172554;
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 13px;
+  background: #FFFFFF;
+  border: 1px solid #DCE5F2;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  color: #172554;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.form-input::placeholder {
+  color: #94A3B8;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.portal-content-box.patient-portal-active .form-input:focus {
+  border-color: #0D9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+}
+
+.form-input:disabled {
+  background: #F8FAFC;
+  color: #94A3B8;
+  cursor: not-allowed;
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper .form-input {
+  padding-right: 42px;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  padding: 4px;
+  color: #64748B;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.password-toggle-btn:hover {
+  color: #172554;
 }
 
 .form-row-2 {
@@ -4194,42 +4399,46 @@ html, body {
   gap: 12px;
 }
 
+/* Submit Buttons */
 .portal-submit-btn {
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px 18px;
   border-radius: 9px;
   border: none;
   font-weight: 700;
   font-size: 0.94rem;
   cursor: pointer;
-  margin-top: 6px;
+  margin-top: 8px;
   transition: all 0.2s ease;
-  color: #fff;
+  color: #FFFFFF;
 }
 
 .portal-submit-btn.patient-btn {
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+  background: #0D9488;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
 }
 
 .portal-submit-btn.patient-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #047857 0%, #059669 100%);
+  background: #0F766E;
+  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.32);
   transform: translateY(-1px);
 }
 
 .portal-submit-btn.doctor-btn {
-  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+  background: #2563EB;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 
 .portal-submit-btn.doctor-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  background: #1D4ED8;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
   transform: translateY(-1px);
 }
 
 .portal-submit-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.65;
   cursor: not-allowed;
+  transform: none;
 }
 
 .btn-loading {
@@ -4239,30 +4448,31 @@ html, body {
   gap: 8px;
 }
 
+/* Security Notice Callout */
 .security-notice-callout {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.28);
+  gap: 12px;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
   border-radius: 8px;
   padding: 12px 14px;
-  font-size: 0.8rem;
-  color: #fde68a;
-  line-height: 1.4;
+  font-size: 0.82rem;
+  color: #92400E;
+  line-height: 1.45;
 }
 
 .security-notice-callout svg {
+  color: #D97706;
   flex-shrink: 0;
-  color: #f59e0b;
   margin-top: 2px;
 }
 
 /* Demo dock helper */
 .demo-credentials-dock {
-  margin-top: 22px;
-  padding-top: 18px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px dashed #DCE5F2;
 }
 
 .demo-dock-title {
@@ -4270,7 +4480,7 @@ html, body {
   font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #94a3b8);
+  color: #64748B;
   font-weight: 700;
   margin-bottom: 10px;
 }
@@ -4282,59 +4492,79 @@ html, body {
 }
 
 .demo-dock-chip {
-  background: rgba(10, 15, 29, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #F8FAFC;
+  border: 1px solid #DCE5F2;
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 9px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
   transition: all 0.15s ease;
-  color: var(--text-main, #f8fafc);
-  font-size: 0.82rem;
+  color: #172554;
+  font-size: 0.84rem;
 }
 
 .demo-dock-chip:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.25);
-  background: rgba(14, 165, 233, 0.1);
+  border-color: #CBD5E1;
+  background: #F1F5F9;
 }
 
 .chip-badge {
   font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
 }
 
 .chip-badge.doctor {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background: #DBEAFE;
+  color: #1D4ED8;
 }
 
 .chip-badge.patient {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
+  background: #CCFBF1;
+  color: #0F766E;
 }
 
 .chip-label {
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: 0.83rem;
+  color: #172554;
 }
 
 .chip-creds {
-  font-family: monospace;
-  font-size: 0.74rem;
-  color: var(--text-secondary, #94a3b8);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.76rem;
+  color: #64748B;
+  background: #EDF2F7;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .account-entry-disclaimer {
   text-align: center;
-  font-size: 0.72rem;
-  color: var(--text-muted, #64748b);
-  line-height: 1.4;
+  font-size: 0.74rem;
+  color: #64748B;
+  line-height: 1.45;
 }
+
+@media (max-width: 680px) {
+  .portal-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-row-2, .form-row-3 {
+    grid-template-columns: 1fr;
+  }
+  .portal-content-box {
+    padding: 24px 18px;
+  }
+  .portal-card-actions {
+    flex-direction: column;
+  }
+}
+
 
 /* ==========================================================================
    REPORT PANEL STYLES (PHASE 7)
@@ -4787,7 +5017,7 @@ html, body {
 }
 
 @media (max-width: 640px) {
-  .portal-selector-row, .form-row-2, .form-row-3, .sheet-demographics-grid, .sheet-grid-2 {
+  .portal-cards-grid, .portal-selector-row, .form-row-2, .form-row-3, .sheet-demographics-grid, .sheet-grid-2 {
     grid-template-columns: 1fr;
   }
 }
