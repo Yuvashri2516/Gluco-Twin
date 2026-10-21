@@ -31,6 +31,7 @@ def default_clinician_auth_override(request):
         username="test_clinician",
         email="clinician@test.hospital",
         role="clinician",
+        approval_status="approved",
         is_active=True,
     )
     had_override = get_current_user in app.dependency_overrides

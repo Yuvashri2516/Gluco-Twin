@@ -49,7 +49,7 @@ def get_digital_twin_intelligence(
     using real stored synthetic telemetry, historical trends, data quality warnings,
     recent alerts, and experimental prediction output.
     """
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -380,7 +380,7 @@ def run_what_if_simulation(
     Simulates hypothetical meal carbohydrate and physical activity perturbations
     against patient baseline glucose using documented, software-only assumptions.
     """
-    check_patient_authorization(request.patient_id, current_user)
+    check_patient_authorization(request.patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == request.patient_id).first()
     if not patient:
@@ -474,7 +474,7 @@ def simulate_sensor_feed(
     Generates new glucose, heart rate, HRV, and step readings, persists them safely,
     re-evaluates alerts, and computes updated digital twin intelligence.
     """
-    check_patient_authorization(request.patient_id, current_user)
+    check_patient_authorization(request.patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == request.patient_id).first()
     if not patient:

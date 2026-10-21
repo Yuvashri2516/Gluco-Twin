@@ -128,6 +128,81 @@ export function clearAuthSession() {
   setAuthSession(null, null);
 }
 
+export async function registerPatient(formData) {
+  const res = await fetch(`${API_BASE_URL}/api/auth/register-patient`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formData),
+  });
+  return handleResponse(res, 'patient registration');
+}
+
+export async function registerDoctor(formData) {
+  const res = await fetch(`${API_BASE_URL}/api/auth/register-doctor`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formData),
+  });
+  return handleResponse(res, 'doctor registration request');
+}
+
+export async function fetchDoctorRequests(statusFilter = null) {
+  let url = `${API_BASE_URL}/api/auth/doctor-requests`;
+  if (statusFilter) url += `?status_filter=${encodeURIComponent(statusFilter)}`;
+  const res = await authFetch(url);
+  return handleResponse(res, 'doctor requests');
+}
+
+export async function approveDoctorRequest(userId) {
+  const res = await authFetch(`${API_BASE_URL}/api/auth/doctor-requests/${userId}/approve`, {
+    method: 'POST',
+  });
+  return handleResponse(res, 'doctor approval');
+}
+
+export async function rejectDoctorRequest(userId) {
+  const res = await authFetch(`${API_BASE_URL}/api/auth/doctor-requests/${userId}/reject`, {
+    method: 'POST',
+  });
+  return handleResponse(res, 'doctor rejection');
+}
+
+export async function fetchPatientReport(patientId) {
+  const res = await authFetch(`${API_BASE_URL}/api/reports/patient/${patientId}`);
+  return handleResponse(res, 'patient report');
+}
+
+export function getPatientReportExportUrl(patientId) {
+  return `${API_BASE_URL}/api/reports/patient/${patientId}/export`;
+}
+
+export async function downloadPatientReportHtml(patientId, filename = null) {
+  const res = await authFetch(`${API_BASE_URL}/api/reports/patient/${patientId}/export`);
+  if (!res.ok) {
+    let errorDetail = res.statusText;
+    try {
+      const errJson = await res.json();
+      if (errJson && errJson.detail) {
+        errorDetail = errJson.detail;
+      }
+    } catch {
+      // ignore JSON parse error on non-JSON response
+    }
+    const error = new Error(`Failed to download report (${res.status}): ${errorDetail}`);
+    error.status = res.status;
+    error.detail = errorDetail;
+    throw error;
+  }
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || `glucotwin_patient_${patientId}_report.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
 export function logoutUser() {
   clearAuthSession();
 }
@@ -266,11 +341,19 @@ export async function authFetch(url, options = {}) {
 // LOGIN
 // ---------------------------------------------------------------------------
 
-export async function loginUser(username, password) {
+export async function loginUser(username, password, portal = null) {
   const normalizedUsername = String(username || '').trim();
 
   if (!normalizedUsername || !password) {
     throw new Error('Please enter both username and password.');
+  }
+
+  const payload = {
+    username: normalizedUsername,
+    password,
+  };
+  if (portal) {
+    payload.portal = portal;
   }
 
   const response = await safeFetch(
@@ -280,10 +363,7 @@ export async function loginUser(username, password) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        username: normalizedUsername,
-        password,
-      }),
+      body: JSON.stringify(payload),
     },
     'signing in'
   );

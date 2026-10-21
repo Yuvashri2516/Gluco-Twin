@@ -167,6 +167,13 @@ def get_current_user(
             detail="User account not found or deactivated.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    user_approval = getattr(user, "approval_status", None)
+    if user_approval is not None and user_approval != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is pending approval. Please contact a clinical administrator.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 
@@ -176,7 +183,7 @@ def get_current_user(
 def require_clinician(current_user: User = Depends(get_current_user)) -> User:
     """
     Enforces that the current authenticated user has an explicit, server-validated
-    'clinician' role. Does not trust any role supplied by frontend headers.
+    'clinician' role and approved status. Does not trust any role supplied by frontend headers.
     """
     if current_user.role != "clinician":
         raise HTTPException(
@@ -186,17 +193,57 @@ def require_clinician(current_user: User = Depends(get_current_user)) -> User:
                 f"clinician privileges (current role: '{current_user.role}')."
             ),
         )
+    clinician_approval = getattr(current_user, "approval_status", None)
+    if clinician_approval is not None and clinician_approval != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: Clinician account is pending approval.",
+        )
     return current_user
 
 
-def check_patient_authorization(patient_id: int, current_user: User) -> None:
+def check_patient_authorization(
+    patient_id: int,
+    current_user: User,
+    db: Optional[Session] = None,
+) -> None:
     """
     Ensures that a user cannot access another patient's records by guessing
     or altering patient IDs.
-    - Clinicians are authorized across the cohort.
+    - Clinicians must be approved. If doctor-patient assignments exist in the DB,
+      clinicians can only access patients assigned to them.
     - Patients are strictly authorized ONLY for their bound patient_id.
     """
     if current_user.role == "clinician":
+        clinician_approval = getattr(current_user, "approval_status", None)
+        if clinician_approval is not None and clinician_approval != "approved":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Clinician account is pending approval.",
+            )
+        if db is not None:
+            try:
+                from app.models import DoctorPatientAssignment
+                has_assignments = db.query(DoctorPatientAssignment).filter(
+                    DoctorPatientAssignment.doctor_id == current_user.id
+                ).first()
+                if has_assignments:
+                    is_assigned = db.query(DoctorPatientAssignment).filter(
+                        DoctorPatientAssignment.doctor_id == current_user.id,
+                        DoctorPatientAssignment.patient_id == patient_id,
+                    ).first()
+                    if not is_assigned:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail=(
+                                f"Access forbidden: Clinician '{current_user.username}' is not authorized "
+                                f"to access patient #{patient_id} outside their assigned clinical scope."
+                            ),
+                        )
+            except HTTPException:
+                raise
+            except Exception:
+                pass
         return
 
     if current_user.role == "patient" and current_user.patient_id == patient_id:
@@ -211,14 +258,26 @@ def check_patient_authorization(patient_id: int, current_user: User) -> None:
     )
 
 
-def check_document_authorization(document: MedicalDocument, current_user: User) -> None:
+def check_document_authorization(
+    document: MedicalDocument,
+    current_user: User,
+    db: Optional[Session] = None,
+) -> None:
     """
     Ensures that a user cannot access or download another patient's medical document
     by guessing or altering document IDs.
-    - Clinicians are authorized across cohort documents.
+    - Clinicians are authorized across cohort documents / assigned scope.
     - Patients are strictly authorized ONLY if document.patient_id matches their patient_id.
     """
     if current_user.role == "clinician":
+        clinician_approval = getattr(current_user, "approval_status", None)
+        if clinician_approval is not None and clinician_approval != "approved":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Clinician account is pending approval.",
+            )
+        if db is not None:
+            check_patient_authorization(document.patient_id, current_user, db)
         return
 
     if current_user.role == "patient" and current_user.patient_id == document.patient_id:

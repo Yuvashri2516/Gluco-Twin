@@ -18,7 +18,9 @@ import ReviewExtractedDataPanel from './components/ReviewExtractedDataPanel';
 import PatientModal from './components/PatientModal';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 import ErrorBanner from './components/Common/ErrorBanner';
-import LoginScreen from './components/LoginScreen';
+import AccountEntryScreen from './components/AccountEntryScreen';
+import ReportPanel from './components/ReportPanel';
+import DoctorApprovalModal from './components/DoctorApprovalModal';
 import {
   fetchHealth,
   fetchPatients,
@@ -60,6 +62,9 @@ export default function App() {
   // Document Intelligence Review Target
   const [activeReviewDocId, setActiveReviewDocId] = useState(null);
 
+  // Doctor Approval Modal (Clinician only)
+  const [isDoctorModalOpen, setIsDoctorModalOpen] = useState(false);
+
   // Load active notifications
   const loadNotifications = useCallback(async () => {
     try {
@@ -85,7 +90,9 @@ export default function App() {
       const patientList = await fetchPatients();
       setPatients(patientList);
 
-      if (patientList.length > 0) {
+      if (currentUser?.role === 'patient' && currentUser.patient_id) {
+        setSelectedPatientId(currentUser.patient_id);
+      } else if (patientList.length > 0) {
         if (targetPatientIdToSelect) {
           setSelectedPatientId(targetPatientIdToSelect);
         } else {
@@ -205,7 +212,7 @@ export default function App() {
 
   if (!authToken) {
     return (
-      <LoginScreen
+      <AccountEntryScreen
         onLoginSuccess={(user) => {
           setCurrentUser(user);
           setAuthToken(getAuthToken());
@@ -225,6 +232,7 @@ export default function App() {
         unreadAlertsCount={activeNotifications.length}
         backendOnline={backendOnline}
         onOpenAddPatient={handleOpenAddPatient}
+        currentUser={currentUser}
       />
 
       <div className="main-wrapper">
@@ -243,6 +251,7 @@ export default function App() {
           onNavigateTab={setActiveTab}
           onOpenAddPatient={handleOpenAddPatient}
           onOpenEditPatient={handleOpenEditPatient}
+          onOpenDoctorApprovals={() => setIsDoctorModalOpen(true)}
           currentUser={currentUser}
           onLogout={logoutUser}
         />
@@ -436,6 +445,14 @@ export default function App() {
                   <WhatIfSimulation selectedPatient={selectedPatient} />
                 </div>
               )}
+
+              {/* TAB 13: CLINICAL & HEALTH REPORT */}
+              {activeTab === 'report' && (
+                <ReportPanel
+                  selectedPatient={selectedPatient}
+                  currentUser={currentUser}
+                />
+              )}
             </>
           )}
         </main>
@@ -448,6 +465,12 @@ export default function App() {
         mode={patientModalMode}
         initialData={patientModalMode === 'edit' ? selectedPatient : null}
         onPatientSaved={handlePatientSaved}
+      />
+
+      {/* Doctor Approval Modal */}
+      <DoctorApprovalModal
+        isOpen={isDoctorModalOpen}
+        onClose={() => setIsDoctorModalOpen(false)}
       />
     </div>
   );

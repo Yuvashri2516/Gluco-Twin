@@ -241,6 +241,9 @@ class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=64)
     email: Optional[str] = None
     role: str = Field(default="patient", description="'clinician' or 'patient'")
+    full_name: Optional[str] = None
+    medical_license_number: Optional[str] = None
+    approval_status: str = Field(default="approved", description="'approved', 'pending', or 'rejected'")
     patient_id: Optional[int] = None
 
 
@@ -251,12 +254,56 @@ class UserCreate(UserBase):
 class UserLogin(BaseModel):
     username: str
     password: str
+    portal: Optional[str] = None  # 'patient' or 'doctor'
 
 
 class UserRead(UserBase):
     id: int
     is_active: bool
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PatientRegisterRequest(BaseModel):
+    """Schema for public self-registration of a patient account."""
+    full_name: Optional[str] = Field(None, max_length=120)
+    name: Optional[str] = Field(None, max_length=120)
+    email: str = Field(..., min_length=5, max_length=120)
+    username: str = Field(..., min_length=3, max_length=64)
+    password: str = Field(..., min_length=8, max_length=128)
+    confirm_password: Optional[str] = Field(None, max_length=128)
+    age: Optional[int] = Field(None, ge=1, le=120)
+    gender: Optional[str] = Field(None, max_length=20)
+    diabetes_type: Optional[str] = Field(None, max_length=50)
+
+
+class DoctorRegisterRequest(BaseModel):
+    """Schema for public account request of a doctor/clinician account."""
+    full_name: str = Field(..., min_length=2, max_length=120)
+    email: str = Field(..., min_length=5, max_length=120)
+    username: str = Field(..., min_length=3, max_length=64)
+    password: str = Field(..., min_length=8, max_length=128)
+    confirm_password: str = Field(..., min_length=8, max_length=128)
+    medical_license_number: Optional[str] = Field(None, max_length=64)
+
+
+class DoctorApprovalAction(BaseModel):
+    """Payload to approve or reject a pending doctor request."""
+    status: str = Field(..., description="'approved' or 'rejected'")
+
+
+class DoctorAssignmentCreate(BaseModel):
+    """Schema to assign a patient to a doctor."""
+    doctor_id: int
+    patient_id: int
+
+
+class DoctorAssignmentRead(BaseModel):
+    id: int
+    doctor_id: int
+    patient_id: int
+    assigned_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -272,6 +319,68 @@ class TokenPayload(BaseModel):
     role: Optional[str] = None
     patient_id: Optional[int] = None
     exp: Optional[int] = None
+
+
+# ---------------------------------------------------------------------------
+# Patient Comprehensive Health & Digital Twin Report Schemas (Phase 7)
+# ---------------------------------------------------------------------------
+class PatientReportResponse(BaseModel):
+    patient_id: int
+    patient_name: str
+    age: int
+    gender: str
+    diabetes_type: str
+    years_since_diagnosis: int
+    calculated_bmi: Optional[float] = None
+    historical_diagnoses: Optional[str] = None
+    medical_history: Optional[str] = None
+    report_generated_at: datetime
+    generated_by_username: str
+    generated_by_role: str
+
+    # Glycemic metrics
+    latest_glucose_mg_dl: Optional[float] = None
+    latest_glucose_timestamp: Optional[datetime] = None
+    time_in_range_pct: Optional[float] = None       # 70-180 mg/dL
+    time_above_range_pct: Optional[float] = None     # >180 mg/dL
+    time_below_range_pct: Optional[float] = None     # <70 mg/dL
+    rolling_avg_glucose_1h: Optional[float] = None
+    rolling_avg_glucose_3h: Optional[float] = None
+    glucose_variability_std_1h: Optional[float] = None
+    glucose_status_label: str = "Recorded"
+
+    # Autonomic vital metrics
+    latest_heart_rate_bpm: Optional[float] = None
+    latest_hrv_ms: Optional[float] = None
+    avg_heart_rate_1h: Optional[float] = None
+    avg_hrv_1h: Optional[float] = None
+    vitals_status_label: str = "Recorded"
+
+    # Historical EHR Lab Panels & Genetics
+    lab_panels: list[LabResultRead] = []
+    genetic_markers: list[GeneticMarkerRead] = []
+
+    # Digital Twin status & Risk
+    twin_status: str = "normal"
+    twin_risk_score: float = 0.0
+    active_alerts_count: int = 0
+    recent_alerts: list[AlertRead] = []
+
+    # Experimental Predictive Modeling
+    experimental_spike_predicted: Optional[bool] = None
+    experimental_spike_risk_score: Optional[float] = None
+    experimental_model_version: Optional[str] = None
+    top_feature_contributions: dict[str, float] = {}
+    data_quality_warnings: list[str] = []
+
+    # Data Sources & Timestamps
+    data_sources: list[str] = []
+    earliest_telemetry_timestamp: Optional[datetime] = None
+    latest_telemetry_timestamp: Optional[datetime] = None
+
+    # Mandatory Synthetic Prototype Disclaimers
+    is_synthetic_data: bool = True
+    disclaimer: str
 
 
 

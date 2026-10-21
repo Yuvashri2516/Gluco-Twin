@@ -49,6 +49,15 @@ def list_patients(
     - Patients view only their own profile, preventing cohort data scraping.
     """
     if current_user.role == "clinician":
+        from app.models import DoctorPatientAssignment
+        assignments = (
+            db.query(DoctorPatientAssignment)
+            .filter(DoctorPatientAssignment.doctor_id == current_user.id)
+            .all()
+        )
+        if assignments:
+            assigned_ids = [a.patient_id for a in assignments]
+            return db.query(Patient).filter(Patient.id.in_(assigned_ids)).order_by(Patient.id.asc()).all()
         return db.query(Patient).order_by(Patient.id.asc()).all()
 
     # Patient user sees only their own profile
@@ -121,7 +130,7 @@ def get_patient(
     db: Session = Depends(get_db),
 ):
     """Return a single patient by ID. Enforces server-side patient isolation check."""
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -137,7 +146,7 @@ def update_patient(
     db: Session = Depends(get_db),
 ):
     """Update profile attributes for an existing patient. Enforces patient isolation check."""
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -168,7 +177,7 @@ def get_patient_labs(
     db: Session = Depends(get_db),
 ):
     """Return structured laboratory panel records for a patient."""
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -192,7 +201,7 @@ def create_patient_lab(
     Manually record a laboratory test result for a patient.
     Tagged explicitly with source (manual/imported) and never claimed as verified.
     """
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -226,7 +235,7 @@ def get_patient_genetics(
     db: Session = Depends(get_db),
 ):
     """Return synthetic genetic marker profiles for a patient."""
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -250,7 +259,7 @@ def record_patient_diagnosis(
     Append an active/historical diagnosis and clinical notes to a patient's medical profile.
     Requires server-validated clinician role.
     """
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:

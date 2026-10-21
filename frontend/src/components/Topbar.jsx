@@ -14,6 +14,7 @@ export default function Topbar({
   onNavigateTab,
   onOpenAddPatient,
   onOpenEditPatient,
+  onOpenDoctorApprovals,
   currentUser,
   onLogout,
 }) {
@@ -61,58 +62,82 @@ export default function Topbar({
           </svg>
         </button>
 
-        <div className="patient-quick-select-wrapper">
-          <label htmlFor="patient-select" className="quick-select-label">
-            Active Patient:
-          </label>
-          <select
-            id="patient-select"
-            className="patient-select-dropdown"
-            value={selectedPatientId || ''}
-            onChange={(e) => onSelectPatient(Number(e.target.value))}
-          >
-            {patients.map((p) => (
-              <option key={p.id} value={p.id}>
-                #{p.id} - {p.name} ({p.diabetes_type}, {p.age}y)
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {selectedPatient && (
-          <div className="active-patient-badge">
-            <span className={`badge ${
-              selectedPatient.diabetes_type === 'Type 1'
-                ? 'badge-warning'
-                : selectedPatient.diabetes_type === 'Type 2'
-                ? 'badge-twin'
-                : 'badge-normal'
-            }`}>
-              {selectedPatient.diabetes_type}
+        {currentUser?.role === 'patient' ? (
+          <div className="patient-portal-identity-badge">
+            <span className="badge badge-normal" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              Patient Portal
+            </span>
+            <span style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)', marginLeft: '8px' }}>
+              {selectedPatient ? `${selectedPatient.name} (Patient #${selectedPatient.id})` : `Patient Record #${currentUser?.patient_id || ''}`}
             </span>
           </div>
-        )}
+        ) : (
+          <>
+            <div className="patient-quick-select-wrapper">
+              <label htmlFor="patient-select" className="quick-select-label">
+                Active Patient:
+              </label>
+              <select
+                id="patient-select"
+                className="patient-select-dropdown"
+                value={selectedPatientId || ''}
+                onChange={(e) => onSelectPatient(Number(e.target.value))}
+              >
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    #{p.id} - {p.name} ({p.diabetes_type}, {p.age}y)
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        {/* Patient Action Buttons */}
-        <div className="patient-action-btns-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '6px' }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={onOpenEditPatient}
-            disabled={!selectedPatient}
-            title="Edit Active Patient Demographics"
-          >
-            Edit Profile
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={onOpenAddPatient}
-            title="Register New Patient Context"
-          >
-            + Add Patient
-          </button>
-        </div>
+            {selectedPatient && (
+              <div className="active-patient-badge">
+                <span className={`badge ${
+                  selectedPatient.diabetes_type === 'Type 1'
+                    ? 'badge-warning'
+                    : selectedPatient.diabetes_type === 'Type 2'
+                    ? 'badge-twin'
+                    : 'badge-normal'
+                }`}>
+                  {selectedPatient.diabetes_type}
+                </span>
+              </div>
+            )}
+
+            {/* Patient Action Buttons */}
+            <div className="patient-action-btns-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '6px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={onOpenEditPatient}
+                disabled={!selectedPatient}
+                title="Edit Active Patient Demographics"
+              >
+                Edit Profile
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={onOpenAddPatient}
+                title="Register New Patient Context"
+              >
+                + Add Patient
+              </button>
+              {onOpenDoctorApprovals && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={onOpenDoctorApprovals}
+                  title="Review Pending Doctor Registration Requests"
+                  style={{ borderColor: 'rgba(59, 130, 246, 0.4)', color: '#3b82f6' }}
+                >
+                  Doctor Requests
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="topbar-right">

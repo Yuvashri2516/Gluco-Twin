@@ -46,7 +46,7 @@ def get_glucose_readings(
     Return glucose readings for a patient within the last `hours` hours.
     Enforces server-side patient isolation check.
     """
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -73,7 +73,7 @@ def get_vital_readings(
     db: Session = Depends(get_db),
 ):
     """Return heart-rate and HRV readings for a patient. Enforces patient isolation check."""
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -100,7 +100,7 @@ def get_sleep_readings(
     db: Session = Depends(get_db),
 ):
     """Return synthetic sleep architecture stages and aggregate metrics for a patient."""
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -157,7 +157,7 @@ def get_step_readings(
     Return physical activity step counts distinguishing 15-minute interval steps
     from daily cumulative step totals.
     """
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -214,7 +214,7 @@ def create_glucose_reading(
     Supports units 'mg/dL' and 'mmol/L' (with automatic conversion to standard mg/dL).
     Validates range and evaluates clinical alerts for the patient.
     """
-    check_patient_authorization(payload.patient_id, current_user)
+    check_patient_authorization(payload.patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == payload.patient_id).first()
     if not patient:
@@ -282,7 +282,7 @@ def create_vital_reading(
     Manually record autonomic vitals (heart rate and/or HRV) for a patient.
     Requires caller authorization for payload.patient_id.
     """
-    check_patient_authorization(payload.patient_id, current_user)
+    check_patient_authorization(payload.patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == payload.patient_id).first()
     if not patient:

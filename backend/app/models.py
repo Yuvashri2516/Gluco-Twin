@@ -303,10 +303,33 @@ class User(Base):
     email           = Column(String(120), unique=True, index=True, nullable=True)
     hashed_password = Column(String(255), nullable=False)
     role            = Column(String(32), default="patient", nullable=False)  # 'clinician' or 'patient'
+    full_name       = Column(String(120), nullable=True)
+    medical_license_number = Column(String(64), nullable=True)
+    approval_status = Column(String(32), default="approved", nullable=False)  # 'approved', 'pending', 'rejected'
     patient_id      = Column(Integer, ForeignKey("patients.id"), nullable=True, index=True)
     is_active       = Column(Boolean, default=True, nullable=False)
     created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     patient = relationship("Patient", back_populates="user_account")
+    patient_assignments = relationship("DoctorPatientAssignment", foreign_keys="[DoctorPatientAssignment.doctor_id]", back_populates="doctor", lazy="dynamic", cascade="all, delete-orphan")
+
+
+# ---------------------------------------------------------------------------
+# Doctor-Patient Assignments (Clinician Scope Isolation)
+# ---------------------------------------------------------------------------
+class DoctorPatientAssignment(Base):
+    """
+    Explicit assignment linking a clinician (User) to a specific Patient.
+    Enforces granular doctor-to-patient authorization scope.
+    """
+    __tablename__ = "doctor_patient_assignments"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    doctor_id   = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    patient_id  = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    assigned_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    doctor  = relationship("User", foreign_keys=[doctor_id], back_populates="patient_assignments")
+    patient = relationship("Patient", foreign_keys=[patient_id])
 
 

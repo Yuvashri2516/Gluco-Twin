@@ -68,6 +68,19 @@ def list_alerts(
     """
     if current_user.role == "patient":
         patient_id = current_user.patient_id
+    elif current_user.role == "clinician":
+        if patient_id is not None:
+            check_patient_authorization(patient_id, current_user, db)
+        else:
+            from app.models import DoctorPatientAssignment
+            assignments = (
+                db.query(DoctorPatientAssignment)
+                .filter(DoctorPatientAssignment.doctor_id == current_user.id)
+                .all()
+            )
+            if assignments:
+                assigned_ids = [a.patient_id for a in assignments]
+                query = query.filter(Alert.patient_id.in_(assigned_ids))
     query = db.query(Alert)
 
     if patient_id is not None:
@@ -115,7 +128,7 @@ def get_alert(
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     if not alert:
         raise HTTPException(status_code=404, detail=f"Alert #{alert_id} not found.")
-    check_patient_authorization(alert.patient_id, current_user)
+    check_patient_authorization(alert.patient_id, current_user, db)
     return _format_alert(alert)
 
 
@@ -129,7 +142,7 @@ def acknowledge_alert(
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     if not alert:
         raise HTTPException(status_code=404, detail=f"Alert #{alert_id} not found.")
-    check_patient_authorization(alert.patient_id, current_user)
+    check_patient_authorization(alert.patient_id, current_user, db)
 
     if alert.status == "resolved":
         raise HTTPException(
@@ -157,6 +170,8 @@ def resolve_alert(
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     if not alert:
         raise HTTPException(status_code=404, detail=f"Alert #{alert_id} not found.")
+
+    check_patient_authorization(alert.patient_id, current_user, db)
 
     if alert.status == "resolved":
         raise HTTPException(
@@ -188,6 +203,7 @@ def trigger_alert_evaluation(
     patients_to_eval: List[Patient] = []
 
     if request.patient_id is not None:
+        check_patient_authorization(request.patient_id, current_user, db)
         p = db.query(Patient).filter(Patient.id == request.patient_id).first()
         if not p:
             raise HTTPException(status_code=404, detail=f"Patient #{request.patient_id} not found.")

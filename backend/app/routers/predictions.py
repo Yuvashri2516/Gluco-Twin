@@ -47,7 +47,7 @@ def predict_glucose_spike(
     Predict whether a patient's glucose level will cross the 180.0 mg/dL threshold
     within the next 2 hours based on recent telemetry and clinical profile.
     """
-    check_patient_authorization(request.patient_id, current_user)
+    check_patient_authorization(request.patient_id, current_user, db)
     # 1. Load model artifact
     pipeline, metadata = load_model_artifact(ML_ARTIFACT_DIR)
     if pipeline is None or metadata is None:

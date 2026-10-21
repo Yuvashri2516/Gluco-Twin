@@ -35,6 +35,7 @@ from app.models import (
     StepRecord,
     MedicalDocument,
     User,
+    DoctorPatientAssignment,
 )  # noqa: F401
 
 from app.seed import seed_database
@@ -48,6 +49,7 @@ from app.routers import (
     twin,
     documents,
     auth,
+    reports,
 )
 
 from app.alerts_engine import (
@@ -178,29 +180,29 @@ def ensure_patient_columns(engine) -> None:
 
 
 def ensure_user_table(engine) -> None:
-    """
-    Ensure the users table exists in older SQLite databases.
-    """
-
+    """Ensure the SQLite users table and doctor_patient_assignments table are present non-destructively."""
     with engine.connect() as conn:
         try:
-            user_columns = conn.execute(
-                text("PRAGMA table_info(users)")
-            ).fetchall()
+            res = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+            if not res:
+                User.__table__.create(bind=conn, checkfirst=True)
+            else:
+                existing_cols = {row[1] for row in res}
+                if "full_name" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR(120) DEFAULT NULL"))
+                if "medical_license_number" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN medical_license_number VARCHAR(64) DEFAULT NULL"))
+                if "approval_status" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN approval_status VARCHAR(32) DEFAULT 'approved'"))
 
-            if not user_columns:
-                User.__table__.create(
-                    bind=conn,
-                    checkfirst=True,
-                )
-                conn.commit()
+            res_d = conn.execute(text("PRAGMA table_info(doctor_patient_assignments)")).fetchall()
+            if not res_d:
+                DoctorPatientAssignment.__table__.create(bind=conn, checkfirst=True)
 
+            conn.commit()
         except Exception as exc:
             conn.rollback()
-            print(
-                "[WARNING] Could not verify users table: "
-                f"{exc}"
-            )
+            print(f"[WARNING] Could not verify users / assignments table: {exc}")
 
 
 # ============================================================
@@ -354,6 +356,7 @@ app.include_router(alerts.router)
 app.include_router(twin.router)
 app.include_router(documents.router)
 app.include_router(auth.router)
+app.include_router(reports.router)
 
 
 # ============================================================

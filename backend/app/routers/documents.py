@@ -63,7 +63,7 @@ async def upload_medical_document(
     Performs initial local parsing and entity extraction, creating an unconfirmed
     reviewable draft strictly isolated from verified patient EHR records.
     """
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -131,7 +131,7 @@ def list_patient_documents(
     List all uploaded medical documents associated with a patient.
     Enforces authorization check ensuring patients can only view their own records.
     """
-    check_patient_authorization(patient_id, current_user)
+    check_patient_authorization(patient_id, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -156,7 +156,7 @@ def get_document(
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document #{document_id} not found.")
 
-    check_document_authorization(doc, current_user)
+    check_document_authorization(doc, current_user, db)
     return doc
 
 
@@ -175,7 +175,7 @@ def get_document_preview(
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document #{document_id} not found.")
 
-    check_document_authorization(doc, current_user)
+    check_document_authorization(doc, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == doc.patient_id).first()
     extraction_data = {}
@@ -216,7 +216,7 @@ def download_document(
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document #{document_id} not found.")
 
-    check_document_authorization(doc, current_user)
+    check_document_authorization(doc, current_user, db)
 
     try:
         file_bytes = storage_provider.get_file_bytes(doc.storage_filename)
@@ -245,7 +245,7 @@ def reextract_document(
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document #{document_id} not found.")
 
-    check_document_authorization(doc, current_user)
+    check_document_authorization(doc, current_user, db)
 
     patient = db.query(Patient).filter(Patient.id == doc.patient_id).first()
     try:
@@ -281,6 +281,8 @@ def confirm_document_extraction(
     doc = db.query(MedicalDocument).filter(MedicalDocument.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document #{document_id} not found.")
+
+    check_document_authorization(doc, current_user, db)
 
     if doc.is_confirmed:
         raise HTTPException(
@@ -378,7 +380,7 @@ def cancel_document_extraction(
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document #{document_id} not found.")
 
-    check_document_authorization(doc, current_user)
+    check_document_authorization(doc, current_user, db)
 
     doc.processing_status = "cancelled"
     db.commit()
@@ -396,7 +398,7 @@ def delete_document(
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document #{document_id} not found.")
 
-    check_document_authorization(doc, current_user)
+    check_document_authorization(doc, current_user, db)
 
     storage_provider.delete_file(doc.storage_filename)
     db.delete(doc)
