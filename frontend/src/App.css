@@ -3944,10 +3944,8 @@ html, body {
   align-items: center;
   justify-content: center;
   padding: 48px 20px;
-  background-color: #F5F9FF;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(220, 235, 252, 0.6) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(226, 243, 240, 0.6) 0px, transparent 50%);
+  background-color: #F5F9FF !important;
+  background: #F5F9FF !important;
   color: #172554;
   font-family: var(--font-family, 'Plus Jakarta Sans', sans-serif);
 }
