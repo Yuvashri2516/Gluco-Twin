@@ -2,6 +2,7 @@
 **Happiest Health Digital Twin Challenge — Phase 1 Proof-of-Concept**
 
 - **Target Video Duration:** 20 Minutes (Structured Comprehensive Clinical & Engineering Walkthrough)
+- **YouTube Demo Video:** [https://youtu.be/acc7yoSrYdQ](https://youtu.be/acc7yoSrYdQ)
 - **Application URL (Local):** `http://127.0.0.1:5173`
 - **Application URL (Live Production):** `https://gluco-twin-eta.vercel.app/`
 - **Backend API (Live Production):** `https://gluco-twin.onrender.com`
@@ -179,4 +180,4 @@ Before starting screen recording software (OBS Studio / Loom / Camtasia):
 - [ ] **Clean Session:** Ensure test patient #1 (Elena) and patient #3 (Priya) load without console errors.
 - [ ] **Audio Check:** Test microphone input levels; minimize background fan and keyboard noise.
 - [ ] **Deliverables Present:** Verify `submission/GlucoTwin_Architecture.pdf` and `submission/GlucoTwin_Presentation.pptx` are open in background tabs for quick switching.
-- [ ] **Submission Placeholder:** Keep YouTube/Vimeo recording URL field marked as pending user recording.
+- [x] **Demonstration Video Uploaded:** Published on YouTube at [https://youtu.be/acc7yoSrYdQ](https://youtu.be/acc7yoSrYdQ).

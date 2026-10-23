@@ -8,6 +8,7 @@
 [![Deployment: Vercel](https://img.shields.io/badge/Frontend-Vercel%20Live-black)](https://gluco-twin-eta.vercel.app/)
 [![Deployment: Render](https://img.shields.io/badge/Backend-Render%20Live-46E3B7)](https://gluco-twin.onrender.com)
 [![API Documentation](https://img.shields.io/badge/Swagger%20UI-FastAPI%20Docs-009688)](https://gluco-twin.onrender.com/docs)
+[![Demo Video: YouTube](https://img.shields.io/badge/YouTube-Demo%20Walkthrough-FF0000?logo=youtube&logoColor=white)](https://youtu.be/acc7yoSrYdQ)
 
 > [!WARNING]
 > **RESEARCH & HACKATHON PROOF-OF-CONCEPT NOTICE**  
@@ -33,7 +34,7 @@
 | **Architecture Diagram (PNG/SVG)** | Standalone raster & vector formats | [`submission/GlucoTwin_Architecture.png`](submission/GlucoTwin_Architecture.png) & [`.svg`](submission/GlucoTwin_Architecture.svg) |
 | **Presentation Deck (PDF)** | 19-slide comprehensive project deck | [`submission/GlucoTwin_Presentation.pdf`](submission/GlucoTwin_Presentation.pdf) / [`docs/GlucoTwin_Hackathon_Presentation.pdf`](docs/GlucoTwin_Hackathon_Presentation.pdf) |
 | **Presentation Deck (PPTX)** | Widescreen PowerPoint deliverable | [`submission/GlucoTwin_Presentation.pptx`](submission/GlucoTwin_Presentation.pptx) |
-| **Demonstration Video** | 15–20 minute unlisted YouTube walkthrough | [Section 14: Demonstration Video Placeholder](#14-demonstration-video) |
+| **Demonstration Video** | 15–20 minute unlisted YouTube walkthrough | [Watch on YouTube](https://youtu.be/acc7yoSrYdQ) / [Section 14](#14-demonstration-video) |
 | **Open-Source License** | Permissive MIT License | [`LICENSE`](LICENSE) |
 
 ---
@@ -557,14 +558,15 @@ Gluco-Twin/
 
 ## 14. Demonstration Video
 
-The hackathon submission requires a **15–20 minute demonstration video** uploaded to YouTube as **Unlisted**.
+The hackathon submission includes a comprehensive demonstration video walk-through hosted on YouTube:
 
-### Video Link Placeholder
-<!-- TODO: Add the actual Unlisted YouTube demo URL below once the final recording is published -->
-```
-Demo Video URL: [UNLISTED YOUTUBE URL PLACEHOLDER - Replace with actual YouTube link]
-Target Duration: 15–20 Minutes
-```
+[![Watch GlucoTwin Demo Video Walkthrough](https://img.youtube.com/vi/acc7yoSrYdQ/maxresdefault.jpg)](https://youtu.be/acc7yoSrYdQ)
+
+- **Direct YouTube URL:** [https://youtu.be/acc7yoSrYdQ](https://youtu.be/acc7yoSrYdQ)
+- **Direct Video Link:** [Watch GlucoTwin Demonstration Walkthrough](https://youtu.be/acc7yoSrYdQ)
+- **Video ID:** `acc7yoSrYdQ`
+- **Target Duration:** ~15–20 Minutes
+- **Content Covered:** Clinical problem statement, dual-portal architecture, multimodal synthetic EHR, continuous multi-vital telemetry, stateful digital twin baselines, +15m feed simulation, ML 120-minute spike forecasting with linear XAI feature contributions, dual-source clinical alert surveillance and staff triage pager, What-If counterfactual scenario sandbox, and document intelligence OCR parsing.
 
 ### Suggested Demonstration Sequence (from [`submission/DEMO_VIDEO_SCRIPT.md`](submission/DEMO_VIDEO_SCRIPT.md))
 1. **Introduction & Clinical Problem (00:00 – 02:00):** Overview of reactive CGM limitations, data silos, and the digital twin concept.
@@ -793,7 +795,7 @@ The following research directions represent potential future work beyond this pr
 | 5 | **Healthcare Use Case** | Complete | [Section 4: Healthcare Use Case](#4-healthcare-use-case) |
 | 6 | **Technical Stack** | Complete | [Section 6: Technical Stack](#6-technical-stack) |
 | 7 | **AI/ML Model & Framework Details** | Complete | [Section 7: AI/ML Model & Prediction Pipeline](#7-aiml-model--prediction-pipeline) |
-| 8 | **15–20 Minute Demo Video Link** | Ready for Link | [Section 14: Demonstration Video Placeholder](#14-demonstration-video) & [`submission/DEMO_VIDEO_SCRIPT.md`](submission/DEMO_VIDEO_SCRIPT.md) |
+| 8 | **15–20 Minute Demo Video Link** | Complete | [Watch on YouTube](https://youtu.be/acc7yoSrYdQ) & [Section 14](#14-demonstration-video) |
 | 9 | **Open-Source License Details** | Complete | [Section 12](#12-data-privacy--ethical-considerations) & [`LICENSE`](LICENSE) (MIT License) |
 | 10 | **Architecture Diagram in PDF/PPT Format** | Complete | [`submission/GlucoTwin_Architecture.pdf`](submission/GlucoTwin_Architecture.pdf) (Mirror: [`docs/architecture.pdf`](docs/architecture.pdf)) |
 | 11 | **Presentation in PDF/PPT Format** | Complete | [`submission/GlucoTwin_Presentation.pdf`](submission/GlucoTwin_Presentation.pdf) & [`.pptx`](submission/GlucoTwin_Presentation.pptx) |
